@@ -1,4 +1,4 @@
-# miniclaw DLC
+# mimiclaw DLC
 
 https://github.com/memovai/mimiclaw
 
