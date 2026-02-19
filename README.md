@@ -8,7 +8,7 @@ A Device Level Component (DLC) extension for [mimiclaw](https://github.com/memov
 
 This DLC provides two essential tools for the mimiclaw project:
 - **RGB LED Control**: Control WS2812 RGB LEDs connected to your ESP32
-- **Camera Capture**: Capture and retrieve images from ESP32-CAM devices via HTTP
+- **Camera Capture**: Capture and retrieve images from ESP32-CAM devices via HTTP in your local network
 
 ## Features
 
@@ -63,9 +63,11 @@ Edit the following definitions in `tool_rgb.c`:
 Edit the following definitions in `tool_capture.c`:
 
 ```c
-#define CAMERA_URL      "http://192.168.3.40/capture"  // Your ESP32-CAM URL
+#define CAMERA_URL      "http://192.168.3.40/capture"  // Your ESP32-CAM URL (HTTP for LAN)
 #define MAX_IMAGE_SIZE  (200 * 1024)                   // Maximum image size (200KB)
 ```
+
+**Note:** This implementation uses HTTP for local network communication. For production environments, consider implementing HTTPS if secure communication is required.
 
 ## Usage
 
