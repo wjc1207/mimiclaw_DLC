@@ -1,4 +1,4 @@
-# MiniClaw_RGB_light
+# miniclaw DLC
 
 https://github.com/memovai/mimiclaw
 
