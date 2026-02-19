@@ -1,0 +1,42 @@
+idf_component_register(
+    SRCS
+        "mimi.c"
+        "display/display.c"
+        "display/Vernon_ST7789T/Vernon_ST7789T.c"
+        "rgb/rgb.c"
+        "buttons/multi_button.c"
+        "buttons/button_driver.c"
+        "imu/I2C_Driver.c"
+        "imu/QMI8658.c"
+        "imu/imu_manager.c"
+        "ui/config_screen.c"
+        "bus/message_bus.c"
+        "wifi/wifi_manager.c"
+        "telegram/telegram_bot.c"
+        "llm/llm_proxy.c"
+        "agent/agent_loop.c"
+        "agent/context_builder.c"
+        "memory/memory_store.c"
+        "memory/session_mgr.c"
+        "gateway/ws_server.c"
+        "cli/serial_cli.c"
+        "ota/ota_manager.c"
+        "proxy/http_proxy.c"
+        "tools/tool_registry.c"
+        "tools/tool_web_search.c"
+        "tools/tool_get_time.c"
+        "tools/tool_files.c"
+        "tools/tool_cron.c"
+        "tools/tool_capture.c"
+        "tools/tool_rgb.c"
+        "cron/cron_service.c"
+        "heartbeat/heartbeat.c"
+    INCLUDE_DIRS
+        "."
+    EMBED_FILES
+        "../assets/banner_320x172.rgb565"
+    REQUIRES
+        nvs_flash esp_wifi esp_netif esp_http_client esp_http_server
+        esp_https_ota esp_event json spiffs console vfs app_update esp-tls
+        driver esp_lcd esp_timer led_strip qrcode
+)
