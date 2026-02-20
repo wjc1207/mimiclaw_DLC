@@ -160,7 +160,7 @@ main/
 | `tg_poll`          | 0    | 5        | 12 KB  | Telegram long polling (30s timeout)  |
 | `agent_loop`       | 1    | 6        | 12 KB  | Message processing + Claude API call |
 | `outbound`         | 0    | 5        | 8 KB   | Route responses to Telegram / WS     |
-| `serial_cli`       | 0    | 3        | 4 KB   | USB serial console REPL              |
+| `serial_cli`       | 0    | 3        | 4 KB   | UART console REPL                    |
 | httpd (internal)   | 0    | 5        | —      | WebSocket server (esp_http_server)   |
 | wifi_event (IDF)   | 0    | 8        | —      | WiFi event handling (ESP-IDF)        |
 
