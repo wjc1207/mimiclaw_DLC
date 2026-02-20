@@ -28,16 +28,12 @@ Include in your application:
 
 **RGB LED Control:**
 ```c
-const char *input = "{\"r\": 255, \"g\": 0, \"b\": 128}";
-char output[256];
-tool_rgb_execute(input, output, sizeof(output));
+"Turn RGB LED to Scotland sky blue"
 ```
 
 **Camera Capture:**
 ```c
-char *output = malloc(300 * 1024);
-tool_capture_execute(NULL, output, 300 * 1024);
-free(output);
+"Capture an image from the ESP32-CAM"
 ```
 
 ## Configuration
