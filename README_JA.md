@@ -85,10 +85,15 @@ idf.py fullclean && idf.py build
 ls /dev/cu.usb*          # macOS
 ls /dev/ttyACM*          # Linux
 
-# フラッシュとモニター（PORTをあなたのポートに置き換え）
+# 初回フラッシュ：ファームウェアとSPIFFSファイルシステム（SOUL.md・USER.md・MEMORY.md含む）を同時に書き込む
 # USBアダプタ：おそらく /dev/cu.usbmodem11401（macOS）または /dev/ttyACM0（Linux）
+idf.py -p PORT flash spiffs-flash monitor
+
+# 以降のファームウェア更新（SPIFFSと長期記憶は上書きされません）
 idf.py -p PORT flash monitor
 ```
+
+> **長期記憶について**：SPIFFSパーティション（MEMORY.md・SOUL.md・USER.mdなどを含む）はファームウェア更新では消去されません。`spiffs-flash`コマンドを実行したときのみSPIFFSが上書きされます。すべてのファイルを初期状態にリセットしたい場合は、手動で `idf.py -p PORT spiffs-flash` を実行してください。
 
 > **重要：正しいUSBポートに接続してください！** ほとんどのESP32-S3ボードには2つのUSB-Cポートがあります。**USB**（ネイティブUSB Serial/JTAG）と書かれたポートを使用してください。**COM**（外部UARTブリッジ）と書かれたポートは使わないでください。間違ったポートに接続するとフラッシュ/モニターが失敗します。
 >

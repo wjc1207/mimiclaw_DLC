@@ -5,5 +5,9 @@ cmake_minimum_required(VERSION 3.16)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(mimiclaw)
 
-# Pre-flash a valid SPIFFS image so first boot does not need runtime formatting.
-spiffs_create_partition_image(spiffs spiffs_data FLASH_IN_PROJECT)
+# Build the initial SPIFFS image from spiffs_data/.
+# Do NOT use FLASH_IN_PROJECT here — that would overwrite the SPIFFS partition
+# (and erase long-term memory) every time the firmware is flashed.
+# To initialize a fresh device, flash the SPIFFS image once manually:
+#   idf.py spiffs-flash
+spiffs_create_partition_image(spiffs spiffs_data)
