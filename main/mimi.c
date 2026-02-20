@@ -112,7 +112,7 @@ void app_main(void)
     button_Init();
     config_screen_init();
     //imu_manager_init();
-    //imu_manager_set_shake_callback(config_screen_toggle);
+    //imu_manager_set_shake_callback(config_screen_toggle); // avoid GPIO conflicts for now
 
     /* Phase 1: Core infrastructure */
     ESP_ERROR_CHECK(init_nvs());
