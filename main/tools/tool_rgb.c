@@ -30,9 +30,6 @@ esp_err_t tool_rgb_init(void)
     led_strip_config_t strip_config = {
         .strip_gpio_num = RGB_GPIO,
         .max_leds = RGB_LED_COUNT,
-        .led_pixel_format = LED_PIXEL_FORMAT_GRB,
-        .led_model = LED_MODEL_WS2812,
-        .flags.invert_out = false,
     };
 
     led_strip_rmt_config_t rmt_config = {
