@@ -85,10 +85,15 @@ idf.py fullclean && idf.py build
 ls /dev/cu.usb*          # macOS
 ls /dev/ttyACM*          # Linux
 
-# 烧录并监控（将 PORT 替换为你的串口）
+# 首次烧录：需要同时烧录固件和 SPIFFS 文件系统（含 SOUL.md、USER.md、MEMORY.md）
 # USB 转接器：大概率是 /dev/cu.usbmodem11401（macOS）或 /dev/ttyACM0（Linux）
+idf.py -p PORT flash spiffs-flash monitor
+
+# 后续固件更新（仅烧录固件，不会覆盖 SPIFFS 及长期记忆）
 idf.py -p PORT flash monitor
 ```
+
+> **关于长期记忆**：SPIFFS 分区（含 MEMORY.md、SOUL.md、USER.md 等）**不会**随固件更新而被清除。只有 `spiffs-flash` 命令才会重写 SPIFFS。如需重置所有文件到初始状态，可手动执行 `idf.py -p PORT spiffs-flash`。
 
 > **注意：请插对 USB 口！** 大多数 ESP32-S3 开发板有两个 Type-C 接口，必须插标有 **USB** 的那个口（原生 USB Serial/JTAG），**不要**插标有 **COM** 的口（外部 UART 桥接）。插错口会导致烧录/监控失败。
 >
