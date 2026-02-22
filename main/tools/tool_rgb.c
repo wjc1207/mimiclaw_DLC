@@ -7,6 +7,10 @@
 #include "cJSON.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_spiffs.h"
+#include "esp_err.h"
+#include "stdio.h"
+#include "errno.h"
 
 static const char *TAG = "tool_rgb";
 
@@ -14,6 +18,7 @@ static const char *TAG = "tool_rgb";
 #define RGB_GPIO        48
 #define RGB_LED_COUNT   1
 #define RMT_RESOLUTION  (10 * 1000 * 1000)   // 10 MHz for better timing stability
+#define RGB_FILE_PATH "/spiffs/rgb.txt"
 
 /* Static handle */
 static led_strip_handle_t s_strip = NULL;
@@ -56,6 +61,58 @@ esp_err_t tool_rgb_init(void)
     led_strip_clear(s_strip);
     led_strip_refresh(s_strip);
 
+    return ESP_OK;
+}
+
+/* -----------------------------------------------------------
+   Write RGB values to a file in SPIFFS
+----------------------------------------------------------- */
+esp_err_t write_rgb_to_file(int r, int g, int b)
+{
+    FILE *file = fopen(RGB_FILE_PATH, "w");
+    if (file == NULL) {
+        ESP_LOGE(TAG, "fopen failed, errno=%d", errno);
+        ESP_LOGE(TAG, "Check SPIFFS mount and base_path");
+        return ESP_FAIL;
+    }
+
+    fprintf(file, "{\"r\":%d,\"g\":%d,\"b\":%d}", r, g, b);
+    fclose(file);
+
+    return ESP_OK;
+}
+
+/* -----------------------------------------------------------
+   Read RGB values from the file and apply them to the LED strip
+----------------------------------------------------------- */
+esp_err_t read_rgb_from_file_and_apply(void)
+{
+    FILE *file = fopen(RGB_FILE_PATH, "r");
+    if (file == NULL) {
+        ESP_LOGE(TAG, "Failed to open %s for reading", RGB_FILE_PATH);
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    int r = 0, g = 0, b = 0;
+    if (fscanf(file, "{\"r\": %d, \"g\": %d, \"b\": %d}", &r, &g, &b) != 3) {
+        ESP_LOGE(TAG, "Invalid data in %s", RGB_FILE_PATH);
+        fclose(file);
+        return ESP_ERR_INVALID_ARG;
+    }
+    fclose(file);
+
+    /* Apply the RGB color */
+    esp_err_t err = led_strip_set_pixel(s_strip, 0, r, g, b);
+    if (err == ESP_OK) {
+        err = led_strip_refresh(s_strip);
+    }
+
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "RGB update failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    ESP_LOGI(TAG, "RGB set to R:%d G:%d B:%d from file", r, g, b);
     return ESP_OK;
 }
 
@@ -110,6 +167,13 @@ esp_err_t tool_rgb_execute(const char *input_json,
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "RGB update failed: %s", esp_err_to_name(err));
         snprintf(output, output_size, "RGB error");
+        return err;
+    }
+
+    /* Write RGB values to file */
+    err = write_rgb_to_file(r, g, b);
+    if (err != ESP_OK) {
+        snprintf(output, output_size, "Failed to write RGB values to file");
         return err;
     }
 
