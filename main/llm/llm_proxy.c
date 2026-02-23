@@ -3,6 +3,7 @@
 #include "proxy/http_proxy.h"
 
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include "esp_log.h"
 #include "esp_http_client.h"
@@ -27,6 +28,7 @@ typedef enum {
     LLM_PROVIDER_OPENAI,
     LLM_PROVIDER_OPENROUTER,
     LLM_PROVIDER_NVIDIA,
+    LLM_PROVIDER_UNKNOWN,
 } llm_provider_t;
 
 typedef struct {
@@ -49,13 +51,13 @@ static llm_provider_t s_llm_provider = LLM_PROVIDER_ANTHROPIC;
 
 static llm_provider_t provider_parse(const char *str)
 {
-    if (!str) return LLM_PROVIDER_ANTHROPIC;
+    if (!str) return LLM_PROVIDER_UNKNOWN;
     for (size_t i = 0; i < PROVIDER_MAP_LEN; i++) {
-        if (strcmp(str, k_provider_map[i].name) == 0) {
+        if (strcasecmp(str, k_provider_map[i].name) == 0) {
             return k_provider_map[i].id;
         }
     }
-    return LLM_PROVIDER_ANTHROPIC;
+    return LLM_PROVIDER_UNKNOWN;
 }
 
 static const provider_map_t *provider_entry(void)
@@ -146,7 +148,15 @@ static esp_err_t resp_buf_init(resp_buf_t *rb, size_t initial_cap)
 
 static esp_err_t resp_buf_append(resp_buf_t *rb, const char *data, size_t len)
 {
+    if (rb->len + len > MIMI_LLM_RESP_MAX_BYTES) {
+        ESP_LOGE(TAG, "Response too large (>%u bytes), aborting", MIMI_LLM_RESP_MAX_BYTES);
+        return ESP_ERR_NO_MEM;
+    }
     while (rb->len + len >= rb->cap) {
+        if (rb->cap > SIZE_MAX / 2) {
+            ESP_LOGE(TAG, "Response buffer capacity overflow");
+            return ESP_ERR_NO_MEM;
+        }
         size_t new_cap = rb->cap * 2;
         char *tmp = heap_caps_realloc(rb->data, new_cap, MALLOC_CAP_SPIRAM);
         if (!tmp) return ESP_ERR_NO_MEM;
@@ -173,7 +183,9 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
     resp_buf_t *rb = (resp_buf_t *)evt->user_data;
     if (evt->event_id == HTTP_EVENT_ON_DATA) {
-        resp_buf_append(rb, (const char *)evt->data, evt->data_len);
+        if (resp_buf_append(rb, (const char *)evt->data, evt->data_len) != ESP_OK) {
+            return ESP_FAIL;
+        }
     }
     return ESP_OK;
 }
@@ -198,6 +210,10 @@ esp_err_t llm_proxy_init(void)
     if (MIMI_SECRET_MODEL_PROVIDER[0] != '\0') {
         safe_copy(s_provider, sizeof(s_provider), MIMI_SECRET_MODEL_PROVIDER);
         s_llm_provider = provider_parse(s_provider);
+        if (s_llm_provider == LLM_PROVIDER_UNKNOWN) {
+            ESP_LOGW(TAG, "Unknown provider '%s' in build config; defaulting to anthropic", s_provider);
+            s_llm_provider = LLM_PROVIDER_ANTHROPIC;
+        }
     }
 
     /* NVS overrides take highest priority (set via CLI) */
@@ -216,8 +232,13 @@ esp_err_t llm_proxy_init(void)
         char provider_tmp[16] = {0};
         len = sizeof(provider_tmp);
         if (nvs_get_str(nvs, MIMI_NVS_KEY_PROVIDER, provider_tmp, &len) == ESP_OK && provider_tmp[0]) {
-            safe_copy(s_provider, sizeof(s_provider), provider_tmp);
-            s_llm_provider = provider_parse(s_provider);
+            llm_provider_t parsed = provider_parse(provider_tmp);
+            if (parsed == LLM_PROVIDER_UNKNOWN) {
+                ESP_LOGW(TAG, "Unknown provider '%s' in NVS; keeping current provider", provider_tmp);
+            } else {
+                safe_copy(s_provider, sizeof(s_provider), provider_tmp);
+                s_llm_provider = parsed;
+            }
         }
         nvs_close(nvs);
     }
@@ -935,6 +956,12 @@ esp_err_t llm_set_model(const char *model)
 
 esp_err_t llm_set_provider(const char *provider)
 {
+    if (!provider || provider_parse(provider) == LLM_PROVIDER_UNKNOWN) {
+        ESP_LOGE(TAG, "Unknown provider '%s'; valid: anthropic, openai, openrouter, nvidia",
+                 provider ? provider : "<null>");
+        return ESP_ERR_INVALID_ARG;
+    }
+
     nvs_handle_t nvs;
     ESP_ERROR_CHECK(nvs_open(MIMI_NVS_LLM, NVS_READWRITE, &nvs));
     ESP_ERROR_CHECK(nvs_set_str(nvs, MIMI_NVS_KEY_PROVIDER, provider));

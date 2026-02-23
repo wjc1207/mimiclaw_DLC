@@ -71,6 +71,7 @@
 #define MIMI_NVIDIA_API_URL          "https://integrate.api.nvidia.com/v1/chat/completions"
 #define MIMI_LLM_API_VERSION         "2023-06-01"
 #define MIMI_LLM_STREAM_BUF_SIZE     (32 * 1024)
+#define MIMI_LLM_RESP_MAX_BYTES      (512 * 1024)
 #define MIMI_LLM_LOG_VERBOSE_PAYLOAD 0
 #define MIMI_LLM_LOG_PREVIEW_BYTES   160
 
