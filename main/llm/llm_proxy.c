@@ -70,6 +70,11 @@ static const provider_map_t *provider_entry(void)
     return &k_provider_map[0]; /* defensive fallback to anthropic */
 }
 
+bool llm_provider_is_anthropic(void)
+{
+    return s_llm_provider == LLM_PROVIDER_ANTHROPIC;
+}
+
 static void llm_log_payload(const char *label, const char *payload)
 {
     if (!payload) {

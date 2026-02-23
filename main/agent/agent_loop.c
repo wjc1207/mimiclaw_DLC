@@ -141,6 +141,7 @@ static cJSON *build_tool_results(const llm_response_t *resp, const mimi_msg_t *m
                                  char *tool_output, size_t tool_output_size)
 {
     cJSON *content = cJSON_CreateArray();
+    bool is_anthropic = llm_provider_is_anthropic();
 
     for (int i = 0; i < resp->call_count; i++) {
         const llm_tool_call_t *call = &resp->calls[i];
@@ -158,38 +159,31 @@ static cJSON *build_tool_results(const llm_response_t *resp, const mimi_msg_t *m
         ESP_LOGI(TAG, "Tool %s result: %d bytes", call->name, (int)strlen(tool_output));
 
         /* Build tool_result block */
-    cJSON *result_block = cJSON_CreateObject();
-    cJSON_AddStringToObject(result_block, "type", "tool_result");
-    cJSON_AddStringToObject(result_block, "tool_use_id", call->id);
+        cJSON *result_block = cJSON_CreateObject();
+        cJSON_AddStringToObject(result_block, "type", "tool_result");
+        cJSON_AddStringToObject(result_block, "tool_use_id", call->id);
 
-    if (strcmp(call->name, "camera_capture") == 0) {
+        if (is_anthropic && strcmp(call->name, "camera_capture") == 0) {
+            /* Anthropic: embed image as a base64 content-block array */
+            cJSON *content_array = cJSON_CreateArray();
+            cJSON *image_block = cJSON_CreateObject();
+            cJSON_AddStringToObject(image_block, "type", "image");
+            cJSON *source = cJSON_CreateObject();
+            cJSON_AddStringToObject(source, "type", "base64");
+            cJSON_AddStringToObject(source, "media_type", "image/jpeg");
+            cJSON_AddStringToObject(source, "data", tool_output);
+            cJSON_AddItemToObject(image_block, "source", source);
+            cJSON_AddItemToArray(content_array, image_block);
+            cJSON_AddItemToObject(result_block, "content", content_array);
+        } else {
+            /* OpenAI-compatible providers require a plain string for tool
+             * result content.  convert_messages_openai() in llm_proxy.c
+             * then promotes each tool_result block to its own role=tool
+             * message, forwarding this string as-is. */
+            cJSON_AddStringToObject(result_block, "content", tool_output);
+        }
 
-    // Create array for content
-    cJSON *content_array = cJSON_CreateArray();
-
-    // Create image block
-    cJSON *image_block = cJSON_CreateObject();
-    cJSON_AddStringToObject(image_block, "type", "image");
-
-    cJSON *source = cJSON_CreateObject();
-    cJSON_AddStringToObject(source, "type", "base64");
-    cJSON_AddStringToObject(source, "media_type", "image/jpeg");
-    cJSON_AddStringToObject(source, "data", tool_output);
-
-    cJSON_AddItemToObject(image_block, "source", source);
-
-    cJSON_AddItemToArray(content_array, image_block);
-
-    // Attach array to tool_result
-    cJSON_AddItemToObject(result_block, "content", content_array);
-
-    } else {
-        // Normal text tool
-        cJSON_AddStringToObject(result_block, "content", tool_output);
-    }
-
-    cJSON_AddItemToArray(content, result_block);
-
+        cJSON_AddItemToArray(content, result_block);
     }
 
     return content;
