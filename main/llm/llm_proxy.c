@@ -29,13 +29,29 @@ typedef enum {
     LLM_PROVIDER_NVIDIA,
 } llm_provider_t;
 
+typedef struct {
+    const char    *name;
+    llm_provider_t id;
+} provider_map_t;
+
+static const provider_map_t k_provider_map[] = {
+    { "anthropic",  LLM_PROVIDER_ANTHROPIC  },
+    { "openai",     LLM_PROVIDER_OPENAI     },
+    { "openrouter", LLM_PROVIDER_OPENROUTER },
+    { "nvidia",     LLM_PROVIDER_NVIDIA     },
+};
+#define PROVIDER_MAP_LEN (sizeof(k_provider_map) / sizeof(k_provider_map[0]))
+
 static llm_provider_t s_llm_provider = LLM_PROVIDER_ANTHROPIC;
 
 static llm_provider_t provider_parse(const char *str)
 {
-    if (strcmp(str, "openai")     == 0) return LLM_PROVIDER_OPENAI;
-    if (strcmp(str, "openrouter") == 0) return LLM_PROVIDER_OPENROUTER;
-    if (strcmp(str, "nvidia")     == 0) return LLM_PROVIDER_NVIDIA;
+    if (!str) return LLM_PROVIDER_ANTHROPIC;
+    for (size_t i = 0; i < PROVIDER_MAP_LEN; i++) {
+        if (strcmp(str, k_provider_map[i].name) == 0) {
+            return k_provider_map[i].id;
+        }
+    }
     return LLM_PROVIDER_ANTHROPIC;
 }
 
