@@ -22,6 +22,23 @@ static char s_api_key[LLM_API_KEY_MAX_LEN] = {0};
 static char s_model[LLM_MODEL_MAX_LEN] = MIMI_LLM_DEFAULT_MODEL;
 static char s_provider[16] = MIMI_LLM_PROVIDER_DEFAULT;
 
+typedef enum {
+    LLM_PROVIDER_ANTHROPIC = 0,
+    LLM_PROVIDER_OPENAI,
+    LLM_PROVIDER_OPENROUTER,
+    LLM_PROVIDER_NVIDIA,
+} llm_provider_t;
+
+static llm_provider_t s_llm_provider = LLM_PROVIDER_ANTHROPIC;
+
+static llm_provider_t provider_parse(const char *str)
+{
+    if (strcmp(str, "openai")     == 0) return LLM_PROVIDER_OPENAI;
+    if (strcmp(str, "openrouter") == 0) return LLM_PROVIDER_OPENROUTER;
+    if (strcmp(str, "nvidia")     == 0) return LLM_PROVIDER_NVIDIA;
+    return LLM_PROVIDER_ANTHROPIC;
+}
+
 static void llm_log_payload(const char *label, const char *payload)
 {
     if (!payload) {
@@ -134,30 +151,31 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 
 /* ── Provider helpers ──────────────────────────────────────────── */
 
-static bool provider_is_anthropic(void)
-{
-    return strcmp(s_provider, "anthropic") == 0;
-}
-
 static const char *llm_api_url(void)
 {
-    if (strcmp(s_provider, "openrouter") == 0) return MIMI_OPENROUTER_API_URL;
-    if (strcmp(s_provider, "nvidia") == 0)     return MIMI_NVIDIA_API_URL;
-    if (strcmp(s_provider, "openai") == 0)     return MIMI_OPENAI_API_URL;
-    return MIMI_LLM_API_URL;
+    switch (s_llm_provider) {
+        case LLM_PROVIDER_OPENROUTER: return MIMI_OPENROUTER_API_URL;
+        case LLM_PROVIDER_NVIDIA:     return MIMI_NVIDIA_API_URL;
+        case LLM_PROVIDER_OPENAI:     return MIMI_OPENAI_API_URL;
+        case LLM_PROVIDER_ANTHROPIC:  return MIMI_LLM_API_URL;
+    }
+    return MIMI_LLM_API_URL; /* unreachable; silences -Wreturn-type */
 }
 
 static const char *llm_api_host(void)
 {
-    if (strcmp(s_provider, "openrouter") == 0) return "openrouter.ai";
-    if (strcmp(s_provider, "nvidia") == 0)     return "integrate.api.nvidia.com";
-    if (strcmp(s_provider, "openai") == 0)     return "api.openai.com";
-    return "api.anthropic.com";
+    switch (s_llm_provider) {
+        case LLM_PROVIDER_OPENROUTER: return "openrouter.ai";
+        case LLM_PROVIDER_NVIDIA:     return "integrate.api.nvidia.com";
+        case LLM_PROVIDER_OPENAI:     return "api.openai.com";
+        case LLM_PROVIDER_ANTHROPIC:  return "api.anthropic.com";
+    }
+    return "api.anthropic.com"; /* unreachable; silences -Wreturn-type */
 }
 
 static const char *llm_api_path(void)
 {
-    return provider_is_anthropic() ? "/v1/messages" : "/v1/chat/completions";
+    return (s_llm_provider == LLM_PROVIDER_ANTHROPIC) ? "/v1/messages" : "/v1/chat/completions";
 }
 
 /* ── Init ─────────────────────────────────────────────────────── */
@@ -173,6 +191,7 @@ esp_err_t llm_proxy_init(void)
     }
     if (MIMI_SECRET_MODEL_PROVIDER[0] != '\0') {
         safe_copy(s_provider, sizeof(s_provider), MIMI_SECRET_MODEL_PROVIDER);
+        s_llm_provider = provider_parse(s_provider);
     }
 
     /* NVS overrides take highest priority (set via CLI) */
@@ -192,6 +211,7 @@ esp_err_t llm_proxy_init(void)
         len = sizeof(provider_tmp);
         if (nvs_get_str(nvs, MIMI_NVS_KEY_PROVIDER, provider_tmp, &len) == ESP_OK && provider_tmp[0]) {
             safe_copy(s_provider, sizeof(s_provider), provider_tmp);
+            s_llm_provider = provider_parse(s_provider);
         }
         nvs_close(nvs);
     }
@@ -223,7 +243,7 @@ static esp_err_t llm_http_direct(const char *post_data, resp_buf_t *rb, int *out
 
     esp_http_client_set_method(client, HTTP_METHOD_POST);
     esp_http_client_set_header(client, "Content-Type", "application/json");
-    if (!provider_is_anthropic()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         if (s_api_key[0]) {
             char auth[LLM_API_KEY_MAX_LEN + 16];
             snprintf(auth, sizeof(auth), "Bearer %s", s_api_key);
@@ -251,7 +271,7 @@ static esp_err_t llm_http_via_proxy(const char *post_data, resp_buf_t *rb, int *
     int body_len = strlen(post_data);
     char header[1024];
     int hlen = 0;
-    if (!provider_is_anthropic()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         hlen = snprintf(header, sizeof(header),
             "POST %s HTTP/1.1\r\n"
             "Host: %s\r\n"
@@ -538,13 +558,13 @@ esp_err_t llm_chat(const char *system_prompt, const char *messages_json,
     /* Build request body (non-streaming) */
     cJSON *body = cJSON_CreateObject();
     cJSON_AddStringToObject(body, "model", s_model);
-    if (!provider_is_anthropic()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         cJSON_AddNumberToObject(body, "max_completion_tokens", MIMI_LLM_MAX_TOKENS);
     } else {
         cJSON_AddNumberToObject(body, "max_tokens", MIMI_LLM_MAX_TOKENS);
     }
 
-    if (!provider_is_anthropic()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         cJSON *messages = cJSON_Parse(messages_json);
         if (!messages) {
             messages = cJSON_CreateArray();
@@ -621,7 +641,7 @@ esp_err_t llm_chat(const char *system_prompt, const char *messages_json,
         return ESP_FAIL;
     }
 
-    if (!provider_is_anthropic()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         extract_text_openai(root, response_buf, buf_size);
     } else {
         extract_text_anthropic(root, response_buf, buf_size);
@@ -664,13 +684,13 @@ esp_err_t llm_chat_tools(const char *system_prompt,
     /* Build request body (non-streaming) */
     cJSON *body = cJSON_CreateObject();
     cJSON_AddStringToObject(body, "model", s_model);
-    if (!provider_is_anthropic()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         cJSON_AddNumberToObject(body, "max_completion_tokens", MIMI_LLM_MAX_TOKENS);
     } else {
         cJSON_AddNumberToObject(body, "max_tokens", MIMI_LLM_MAX_TOKENS);
     }
 
-    if (!provider_is_anthropic()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         cJSON *openai_msgs = convert_messages_openai(system_prompt, messages);
         cJSON_AddItemToObject(body, "messages", openai_msgs);
 
@@ -740,7 +760,7 @@ esp_err_t llm_chat_tools(const char *system_prompt,
         return ESP_FAIL;
     }
 
-    if (!provider_is_anthropic()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         cJSON *choices = cJSON_GetObjectItem(root, "choices");
         cJSON *choice0 = choices && cJSON_IsArray(choices) ? cJSON_GetArrayItem(choices, 0) : NULL;
         if (choice0) {
@@ -911,6 +931,7 @@ esp_err_t llm_set_provider(const char *provider)
     nvs_close(nvs);
 
     safe_copy(s_provider, sizeof(s_provider), provider);
+    s_llm_provider = provider_parse(s_provider);
     ESP_LOGI(TAG, "Provider set to: %s", s_provider);
     return ESP_OK;
 }
