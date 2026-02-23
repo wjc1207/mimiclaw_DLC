@@ -22,7 +22,7 @@ git clone https://github.com/wjc1207/mimiclaw_DLC.git
 
 **RGB LED Control:**
 ```c
-"Turn RGB LED to a "mys"(Swidish) color"
+"Turn RGB LED to a 'mys'(Swidish) color"
 ```
 
 **Camera Capture:**
