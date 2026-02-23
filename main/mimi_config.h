@@ -59,7 +59,7 @@
 #define MIMI_AGENT_SEND_WORKING_STATUS 1
 
 /* Timezone (POSIX TZ format) */
-#define MIMI_TIMEZONE                "PST8PDT,M3.2.0,M11.1.0"
+#define MIMI_TIMEZONE                "CST-8"  /* China Standard Time (UTC+8) */
 
 /* LLM */
 #define MIMI_LLM_DEFAULT_MODEL       "claude-opus-4-5"
