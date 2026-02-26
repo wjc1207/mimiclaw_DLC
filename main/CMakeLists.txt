@@ -28,6 +28,7 @@ idf_component_register(
         "tools/tool_files.c"
         "tools/tool_rgb.c"
         "tools/tool_capture.c"
+        "tools/tool_arxiv.c"
         "skills/skill_loader.c"
     INCLUDE_DIRS
         "."

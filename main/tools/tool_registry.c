@@ -5,6 +5,7 @@
 #include "tools/tool_cron.h"
 #include "tools/tool_rgb.h"
 #include "tools/tool_capture.h"
+#include "tools/tool_arxiv.h"
 
 #include <string.h>
 #include "esp_log.h"
@@ -12,7 +13,7 @@
 
 static const char *TAG = "tools";
 
-#define MAX_TOOLS 12
+#define MAX_TOOLS 13
 
 static mimi_tool_t s_tools[MAX_TOOLS];
 static int s_tool_count = 0;
@@ -212,6 +213,24 @@ esp_err_t tool_registry_init(void)
     };
 
     register_tool(&cap);
+
+    /* Register arxiv_search */
+    tool_arxiv_init();
+
+    mimi_tool_t arxiv = {
+        .name = "arxiv_search",
+        .description = "Search arXiv for academic papers by keywords. Returns title, authors, summary, and link for each result.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{"
+            "\"keywords\":{\"type\":\"string\",\"description\":\"Search keywords or phrase\"},"
+            "\"start\":{\"type\":\"integer\",\"description\":\"Pagination offset (default 0)\"},"
+            "\"max_results\":{\"type\":\"integer\",\"description\":\"Number of results to return (1-20, default 5)\"}"
+            "},"
+            "\"required\":[\"keywords\"]}",
+        .execute = tool_arxiv_execute,
+    };
+    register_tool(&arxiv);
 
     // After registering all tools, build the JSON array string
     build_tools_json();
