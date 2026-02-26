@@ -41,7 +41,7 @@ git clone https://github.com/wjc1207/mimiclaw_DLC.git
 "Capture an image from the ESP32-CAM. "
 ```
 
-**Camera Capture:**
+**ArXiv Search:**
 ```c
 "Search papers about Finite Rate Innovation (FRI) on ArXiV website"
 ``` 
