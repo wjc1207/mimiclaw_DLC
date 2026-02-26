@@ -597,7 +597,7 @@ esp_err_t llm_chat(const char *system_prompt, const char *messages_json,
     /* Build request body (non-streaming) */
     cJSON *body = cJSON_CreateObject();
     cJSON_AddStringToObject(body, "model", s_model);
-    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC && s_llm_provider != LLM_PROVIDER_NVIDIA) {
         cJSON_AddNumberToObject(body, "max_completion_tokens", MIMI_LLM_MAX_TOKENS);
     } else {
         cJSON_AddNumberToObject(body, "max_tokens", MIMI_LLM_MAX_TOKENS);
@@ -723,7 +723,7 @@ esp_err_t llm_chat_tools(const char *system_prompt,
     /* Build request body (non-streaming) */
     cJSON *body = cJSON_CreateObject();
     cJSON_AddStringToObject(body, "model", s_model);
-    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC && s_llm_provider != LLM_PROVIDER_NVIDIA) {
         cJSON_AddNumberToObject(body, "max_completion_tokens", MIMI_LLM_MAX_TOKENS);
     } else {
         cJSON_AddNumberToObject(body, "max_tokens", MIMI_LLM_MAX_TOKENS);
