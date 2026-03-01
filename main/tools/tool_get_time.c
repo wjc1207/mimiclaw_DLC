@@ -56,10 +56,10 @@ static bool parse_and_set_time(const char *date_str, char *out, size_t out_size)
     /* Format in local time */
     struct tm local;
     localtime_r(&t, &local);
-    strftime(out, out_size, "%Y-%m-%d %H:%M:%S %Z (%A)", &local);
-    // add unix timestamp to output
-    size_t len = strlen(out);
-    snprintf(out + len, out_size - len, " [epoch: %lld]", (long long)t);
+    /*{Time: "2026-03-01 16:50:34 CST (Sunday)",epoch: 1772355034}*/
+    char time_str[128];
+    strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S %Z (%A)", &local);
+    snprintf(out, out_size, "{\"time\":\"%s\",\"epoch\":%ld}", time_str, (long)t);
     
     return true;
 }
@@ -109,36 +109,54 @@ static esp_err_t fetch_time_via_proxy(char *out, size_t out_size)
     return ESP_OK;
 }
 
+/* Event handler that captures the Date response header */
+typedef struct {
+    char date_val[64];
+} time_header_ctx_t;
+
+/**
+ * HTTP event handler that captures the "Date" response header.
+ *
+ * esp_http_client_get_header() only accesses request headers, so response
+ * headers must be captured here during HTTP_EVENT_ON_HEADER events.
+ * The Date value is copied into the time_header_ctx_t provided via user_data.
+ */
+static esp_err_t time_http_event_handler(esp_http_client_event_t *evt)
+{
+    time_header_ctx_t *ctx = evt->user_data;
+    if (evt->event_id == HTTP_EVENT_ON_HEADER) {
+        if (strcasecmp(evt->header_key, "Date") == 0 && ctx) {
+            strncpy(ctx->date_val, evt->header_value, sizeof(ctx->date_val) - 1);
+            ctx->date_val[sizeof(ctx->date_val) - 1] = '\0';
+        }
+    }
+    return ESP_OK;
+}
+
 /* Fetch time via direct HTTPS */
 static esp_err_t fetch_time_direct(char *out, size_t out_size)
 {
+    time_header_ctx_t ctx = {0};
+
     esp_http_client_config_t config = {
         .url = "https://api.telegram.org/",
         .method = HTTP_METHOD_HEAD,
         .timeout_ms = 10000,
         .crt_bundle_attach = esp_crt_bundle_attach,
+        .event_handler = time_http_event_handler,
+        .user_data = &ctx,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
     if (!client) return ESP_FAIL;
 
     esp_err_t err = esp_http_client_perform(client);
-    if (err != ESP_OK) {
-        esp_http_client_cleanup(client);
-        return err;
-    }
-
-    /* Get Date header */
-    char date_val[64] = {0};
-    err = esp_http_client_get_header(client, "Date", (char **)&date_val);
-    /* esp_http_client_get_header returns pointer, not copy */
-    char *date_ptr = NULL;
-    esp_http_client_get_header(client, "Date", &date_ptr);
     esp_http_client_cleanup(client);
 
-    if (!date_ptr || date_ptr[0] == '\0') return ESP_ERR_NOT_FOUND;
+    if (err != ESP_OK) return err;
+    if (ctx.date_val[0] == '\0') return ESP_ERR_NOT_FOUND;
 
-    if (!parse_and_set_time(date_ptr, out, out_size)) return ESP_FAIL;
+    if (!parse_and_set_time(ctx.date_val, out, out_size)) return ESP_FAIL;
     return ESP_OK;
 }
 

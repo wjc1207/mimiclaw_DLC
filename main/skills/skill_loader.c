@@ -41,7 +41,7 @@ static const char *TAG = "skills";
     "\n" \
     "## How to use\n" \
     "1. Use get_current_time for today's date\n" \
-    "2. Read /spiffs/memory/MEMORY.md for user preferences and context\n" \
+    "2. Read " MIMI_SPIFFS_MEMORY_DIR "/MEMORY.md for user preferences and context\n" \
     "3. Read today's daily note if it exists\n" \
     "4. Use web_search for relevant news based on user interests\n" \
     "5. Compile a concise briefing covering:\n" \
@@ -53,6 +53,40 @@ static const char *TAG = "skills";
     "\n" \
     "## Format\n" \
     "Keep it brief — 5-10 bullet points max. Use the user's preferred language.\n"
+
+#define BUILTIN_ARXIV_SEARCH \
+    "# ArXiv Search\n" \
+    "\n" \
+    "Search for academic papers on ArXiv by keywords using the http_request tool.\n" \
+    "\n" \
+    "## When to use\n" \
+    "When the user asks to find academic papers, research articles, preprints, or scientific publications.\n" \
+    "Also when the user mentions ArXiv or asks about recent research on a topic.\n" \
+    "\n" \
+    "## How to use\n" \
+    "1. Identify the search keywords from the user's query\n" \
+    "2. Build the ArXiv API query URL:\n" \
+    "   - Base URL: `https://export.arxiv.org/api/query`\n" \
+    "   - Add `search_query=` with keywords joined by `+AND+` (URL-encoded spaces as `+`)\n" \
+    "   - Use field prefixes: `all:` (any field), `ti:` (title), `au:` (author), `abs:` (abstract), `cat:` (category)\n" \
+    "   - Add `&start=0&max_results=5` to limit results\n" \
+    "   - Add `&sortBy=submittedDate&sortOrder=descending` for newest first\n" \
+    "3. Use http_request tool with method GET and the constructed URL\n" \
+    "4. Parse the Atom XML response — each `<entry>` contains:\n" \
+    "   - `<title>`: paper title\n" \
+    "   - `<summary>`: abstract\n" \
+    "   - `<author><name>`: author names\n" \
+    "   - `<link>` with `title=\"pdf\"`: PDF link\n" \
+    "   - `<published>`: publication date\n" \
+    "5. Present results in a clear format: title, authors, date, abstract snippet, and link\n" \
+    "\n" \
+    "## Example\n" \
+    "User: \"Find recent papers on large language models\"\n" \
+    "→ http_request url=\"https://export.arxiv.org/api/query?search_query=all:large+AND+all:language+AND+all:models&start=0&max_results=5&sortBy=submittedDate&sortOrder=descending\" method=\"GET\"\n" \
+    "→ Parse the XML response and list papers with title, authors, date, and link\n" \
+    "\n" \
+    "User: \"Search ArXiv for papers by Yann LeCun on deep learning\"\n" \
+    "→ http_request url=\"https://export.arxiv.org/api/query?search_query=au:LeCun+AND+all:deep+learning&start=0&max_results=5&sortBy=submittedDate&sortOrder=descending\" method=\"GET\"\n"
 
 #define BUILTIN_SKILL_CREATOR \
     "# Skill Creator\n" \
@@ -70,7 +104,7 @@ static const char *TAG = "skills";
     "   - `## When to use` — trigger conditions\n" \
     "   - `## How to use` — step-by-step instructions\n" \
     "   - `## Example` — concrete example (optional but helpful)\n" \
-    "3. Save to `/spiffs/skills/<name>.md` using write_file\n" \
+    "3. Save to `" MIMI_SKILLS_PREFIX "<name>.md` using write_file\n" \
     "4. The skill will be automatically available after the next conversation\n" \
     "\n" \
     "## Best practices\n" \
@@ -81,7 +115,7 @@ static const char *TAG = "skills";
     "\n" \
     "## Example\n" \
     "To create a \"translate\" skill:\n" \
-    "write_file path=\"/spiffs/skills/translate.md\" content=\"# Translate\\n\\nTranslate text between languages.\\n\\n" \
+    "write_file path=\"" MIMI_SKILLS_PREFIX "translate.md\" content=\"# Translate\\n\\nTranslate text between languages.\\n\\n" \
     "## When to use\\nWhen the user asks to translate text.\\n\\n" \
     "## How to use\\n1. Identify source and target languages\\n" \
     "2. Translate directly using your language knowledge\\n" \
@@ -96,6 +130,7 @@ typedef struct {
 static const builtin_skill_t s_builtins[] = {
     { "weather",        BUILTIN_WEATHER        },
     { "daily-briefing", BUILTIN_DAILY_BRIEFING },
+    { "arxiv-search",   BUILTIN_ARXIV_SEARCH   },
     { "skill-creator",  BUILTIN_SKILL_CREATOR  },
 };
 

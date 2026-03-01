@@ -5,7 +5,7 @@
 #include "tools/tool_cron.h"
 #include "tools/tool_rgb.h"
 #include "tools/tool_capture.h"
-#include "tools/tool_arxiv.h"
+#include "tools/tool_http_request.h"
 
 #include <string.h>
 #include "esp_log.h"
@@ -214,23 +214,22 @@ esp_err_t tool_registry_init(void)
 
     register_tool(&cap);
 
-    /* Register arxiv_search */
-    tool_arxiv_init();
-
-    mimi_tool_t arxiv = {
-        .name = "arxiv_search",
-        .description = "Search arXiv for academic papers by keywords. Returns title, authors, summary, and link for each result.",
+ /* Register http_request */
+    mimi_tool_t hr = {
+        .name = "http_request",
+        .description = "Make HTTP requests to external APIs and websites. Supports GET, POST, PUT, DELETE, PATCH, HEAD methods. Use for API calls, fetching data from URLs, etc.",
         .input_schema_json =
             "{\"type\":\"object\","
             "\"properties\":{"
-            "\"keywords\":{\"type\":\"string\",\"description\":\"Search keywords or phrase\"},"
-            "\"start\":{\"type\":\"integer\",\"description\":\"Pagination offset (default 0)\"},"
-            "\"max_results\":{\"type\":\"integer\",\"description\":\"Number of results to return (1-20, default 5)\"}"
+            "\"url\":{\"type\":\"string\",\"description\":\"HTTP or HTTPS URL to request\"},"
+            "\"method\":{\"type\":\"string\",\"description\":\"HTTP method: GET, POST, PUT, DELETE, PATCH, HEAD (default: GET)\"},"
+            "\"headers\":{\"type\":\"object\",\"description\":\"Optional HTTP headers as key-value pairs\"},"
+            "\"body\":{\"type\":\"string\",\"description\":\"Optional request body (for POST, PUT, PATCH)\"}"
             "},"
-            "\"required\":[\"keywords\"]}",
-        .execute = tool_arxiv_execute,
+            "\"required\":[\"url\"]}",
+        .execute = tool_http_request_execute,
     };
-    register_tool(&arxiv);
+    register_tool(&hr);
 
     // After registering all tools, build the JSON array string
     build_tools_json();
