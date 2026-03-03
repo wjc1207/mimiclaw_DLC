@@ -6,15 +6,6 @@
 
 Inspired by [mimiclaw](https://github.com/memovai/mimiclaw) that enables LLM-controlled hardware interaction with ESP32 devices.
 
-## Supported LLM Providers
-
-| Provider | Value | API Endpoint | Notes |
-|----------|-------|-------------|-------|
-| Anthropic (Claude) | `anthropic` | api.anthropic.com | Default |
-| OpenAI (GPT) | `openai` | api.openai.com | |
-| OpenRouter | `openrouter` | openrouter.ai | Free tier available |
-| NVIDIA NIM | `nvidia` | integrate.api.nvidia.com | Free tier available |
-
 ## Features
 
 - 🎨 **RGB LED Control** - Control WS2812 RGB LEDs with JSON commands
@@ -50,6 +41,22 @@ git clone https://github.com/wjc1207/mimiclaw_DLC.git
 
 Edit `tool_rgb.c` for GPIO pin and LED count.  
 Edit `tool_capture.c` for camera URL and image size limits.
+
+## Supported LLM Providers
+
+| Provider | Value | API Endpoint | Notes |
+|----------|-------|-------------|-------|
+| Anthropic (Claude) | `anthropic` | api.anthropic.com | Default |
+| OpenAI (GPT) | `openai` | api.openai.com | |
+| OpenRouter | `openrouter` | openrouter.ai | Free tier available |
+| NVIDIA NIM | `nvidia` | integrate.api.nvidia.com | Free tier available |
+
+## Supported Web Search Providers
+
+| Provider | Value | API Endpoint | Notes |
+|----------|-------|-------------|-------|
+| tavily | `tavily` | api.tavily.com | Default |
+| brave | `brave` | api.search.brave.com | |
 
 ## Hardware Requirements
 
