@@ -1,11 +1,6 @@
 idf_component_register(
     SRCS
         "mimi.c"
-        "buttons/multi_button.c"
-        "buttons/button_driver.c"
-        "imu/I2C_Driver.c"
-        "imu/QMI8658.c"
-        "imu/imu_manager.c"
         "ui/config_screen.c"
         "bus/message_bus.c"
         "wifi/wifi_manager.c"

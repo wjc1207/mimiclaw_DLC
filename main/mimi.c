@@ -24,8 +24,6 @@
 #include "tools/tool_rgb.h"
 #include "cron/cron_service.h"
 #include "heartbeat/heartbeat.h"
-#include "buttons/button_driver.h"
-#include "imu/imu_manager.h"
 #include "skills/skill_loader.h"
 
 static const char *TAG = "mimi";
@@ -110,11 +108,6 @@ void app_main(void)
              (int)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
     ESP_LOGI(TAG, "PSRAM free:    %d bytes",
              (int)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
-
-    /* Input */
-    //button_Init();
-    //imu_manager_init();
-    //imu_manager_set_shake_callback(NULL);
 
     /* Phase 1: Core infrastructure */
     ESP_ERROR_CHECK(init_nvs());
