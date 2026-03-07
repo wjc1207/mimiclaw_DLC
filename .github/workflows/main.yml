@@ -1,0 +1,51 @@
+name: ESP-IDF Build
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build Firmware
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: esp32s3
+            idf_version: "v5.5.3"
+          # Add more target/version combos as needed:
+          # - target: esp32
+          #   idf_version: "v5.1.2"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive   # needed if you have IDF components as submodules
+
+      - name: Build with ESP-IDF
+        uses: espressif/esp-idf-ci-action@v1.1.0
+        with:
+          esp_idf_version: ${{ matrix.idf_version }}
+          target: ${{ matrix.target }}
+          path: "."          # root of your IDF project (where CMakeLists.txt lives)
+          command: |
+            idf.py build
+
+      # --- Optional: upload the firmware binaries as artifacts ---
+      - name: Upload build artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.target }}-${{ matrix.idf_version }}
+          path: |
+            build/*.bin
+            build/*.elf
+            build/*.map
+            build/partition_table/*.bin
+            build/bootloader/*.bin
+          retention-days: 30
