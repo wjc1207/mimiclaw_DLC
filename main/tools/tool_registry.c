@@ -4,7 +4,6 @@
 #include "tools/tool_files.h"
 #include "tools/tool_cron.h"
 #include "tools/tool_rgb.h"
-#include "tools/tool_capture.h"
 #include "tools/tool_http_request.h"
 
 #include <string.h>
@@ -13,7 +12,7 @@
 
 static const char *TAG = "tools";
 
-#define MAX_TOOLS 13
+#define MAX_TOOLS 12
 
 static mimi_tool_t s_tools[MAX_TOOLS];
 static int s_tool_count = 0;
@@ -199,20 +198,6 @@ esp_err_t tool_registry_init(void)
     };
 
     register_tool(&rgb);
-
-    mimi_tool_t cap = {
-    .name = "camera_capture",
-    .description = "Capture image from remote ESP32 camera node.",
-    .input_schema_json =
-        "{"
-        "\"type\":\"object\","
-        "\"properties\":{},"
-        "\"required\":[]"
-        "}",
-    .execute = tool_capture_execute,
-    };
-
-    register_tool(&cap);
 
  /* Register http_request */
     mimi_tool_t hr = {
