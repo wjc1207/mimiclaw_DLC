@@ -104,8 +104,15 @@ esp_err_t tool_script_run_execute(const char *input_json,
     }
 
     /* Make a local copy of path before we free the JSON */
-    char path_buf[128];
-    snprintf(path_buf, sizeof(path_buf), "%s", path);
+    size_t path_len = strlen(path);
+    if (path_len >= 256) {
+        snprintf(output, output_size,
+                 "{\"ok\":false,\"error\":\"path too long (max 255 chars)\"}");
+        cJSON_Delete(root);
+        return ESP_ERR_INVALID_ARG;
+    }
+    char path_buf[256];
+    memcpy(path_buf, path, path_len + 1);
     cJSON_Delete(root);
 
     char *lua_output = NULL;

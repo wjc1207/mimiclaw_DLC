@@ -8,6 +8,7 @@
 #include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -18,6 +19,7 @@ static const char *TAG = "lua_runner";
 /* ── Capture buffer for print() output ────────────────────── */
 
 #define CAPTURE_BUF_MAX  4096
+#define LUA_TASK_STACK   16384
 
 typedef struct {
     char  buf[CAPTURE_BUF_MAX];
@@ -71,15 +73,17 @@ static int l_capture_print(lua_State *L)
 /* ── Task wrapper for executing Lua with a timeout ────────── */
 
 typedef struct {
-    lua_State   *L;
-    const char  *script_path;
-    int          result;
+    lua_State        *L;
+    const char       *script_path;
+    int               result;
+    SemaphoreHandle_t done_sem;
 } lua_task_ctx_t;
 
 static void lua_exec_task(void *arg)
 {
     lua_task_ctx_t *tc = (lua_task_ctx_t *)arg;
     tc->result = luaL_dofile(tc->L, tc->script_path);
+    xSemaphoreGive(tc->done_sem);
     vTaskDelete(NULL);
 }
 
@@ -111,40 +115,46 @@ esp_err_t lua_runner_exec(const char *script_path, int timeout_ms,
     lua_setglobal(L, "print");
 
     /* Set Lua package search path to SPIFFS scripts directory */
-    luaL_dostring(L, "package.path = '/spiffs/scripts/?.lua'");
+    if (luaL_dostring(L, "package.path = '/spiffs/scripts/?.lua'") != LUA_OK) {
+        ESP_LOGW(TAG, "Failed to set package.path: %s",
+                 lua_tostring(L, -1));
+        lua_pop(L, 1);
+    }
 
     /* Run the script in a separate FreeRTOS task with timeout */
+    SemaphoreHandle_t done_sem = xSemaphoreCreateBinary();
+    if (!done_sem) {
+        lua_close(L);
+        *out_buf = strdup("Failed to create semaphore");
+        return ESP_FAIL;
+    }
+
     lua_task_ctx_t tc = {
         .L = L,
         .script_path = script_path,
         .result = LUA_ERRRUN,
+        .done_sem = done_sem,
     };
 
     TaskHandle_t task_handle = NULL;
     BaseType_t created = xTaskCreatePinnedToCore(
-        lua_exec_task, "lua_exec", 8192, &tc,
+        lua_exec_task, "lua_exec", LUA_TASK_STACK, &tc,
         tskIDLE_PRIORITY + 1, &task_handle, tskNO_AFFINITY);
 
     if (created != pdPASS) {
+        vSemaphoreDelete(done_sem);
         lua_close(L);
         *out_buf = strdup("Failed to create Lua execution task");
         return ESP_FAIL;
     }
 
-    /* Wait for the task to finish with a timeout */
-    TickType_t start = xTaskGetTickCount();
-    TickType_t deadline = start + pdMS_TO_TICKS(timeout_ms);
-    bool timed_out = false;
-
-    while (eTaskGetState(task_handle) != eDeleted) {
-        if (xTaskGetTickCount() >= deadline) {
-            timed_out = true;
-            ESP_LOGW(TAG, "Lua script timed out after %d ms", timeout_ms);
-            vTaskDelete(task_handle);
-            break;
-        }
-        vTaskDelay(pdMS_TO_TICKS(50));
+    /* Wait for the task to signal completion or timeout */
+    bool timed_out = (xSemaphoreTake(done_sem, pdMS_TO_TICKS(timeout_ms)) != pdTRUE);
+    if (timed_out) {
+        ESP_LOGW(TAG, "Lua script timed out after %d ms", timeout_ms);
+        vTaskDelete(task_handle);
     }
+    vSemaphoreDelete(done_sem);
 
     /* Flush capture buffer */
     ctx.buf[ctx.len] = '\0';
@@ -165,16 +175,17 @@ esp_err_t lua_runner_exec(const char *script_path, int timeout_ms,
         *out_buf = strdup(ctx.buf);
     } else {
         const char *err = lua_tostring(L, -1);
-        size_t err_len = err ? strlen(err) : 0;
+        const char *err_msg = err ? err : "unknown error";
+        size_t err_len = strlen(err_msg);
         size_t needed = ctx.len + err_len + 2;
         char *result = malloc(needed);
         if (result) {
             if (ctx.len > 0) {
                 memcpy(result, ctx.buf, ctx.len);
                 result[ctx.len] = '\n';
-                memcpy(result + ctx.len + 1, err ? err : "", err_len + 1);
+                memcpy(result + ctx.len + 1, err_msg, err_len + 1);
             } else {
-                memcpy(result, err ? err : "unknown error", err_len + 1);
+                memcpy(result, err_msg, err_len + 1);
             }
         }
         *out_buf = result ? result : strdup("Lua error");
