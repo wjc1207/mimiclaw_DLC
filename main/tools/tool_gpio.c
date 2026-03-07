@@ -35,7 +35,6 @@ static const char *TAG = "tool_gpio";
 #define MAX_UART_PORTS      2           /* UART1 and UART2 for users     */
 #define RMT_RESOLUTION      (10 * 1000 * 1000) /* 10 MHz */
 #define LEDC_DUTY_MAX       8191    /* 2^13 - 1, for LEDC_TIMER_13_BIT */
-#define RGB_FILE_PATH       "/spiffs/rgb.txt"
 #define I2C_TIMEOUT_MS      1000
 #define MAX_TRANSFER_BYTES  256
 
@@ -1277,21 +1276,6 @@ static esp_err_t handle_onewire_read(cJSON *root, char *out, size_t sz)
     return ESP_OK;
 }
 
-/* ====================================================================
-   Legacy RGB compat — for set_rgb backward compatibility & file persistence
-   ==================================================================== */
-static esp_err_t write_rgb_to_file(int r, int g, int b)
-{
-    FILE *file = fopen(RGB_FILE_PATH, "w");
-    if (!file) {
-        ESP_LOGE(TAG, "fopen %s failed, errno=%d", RGB_FILE_PATH, errno);
-        return ESP_FAIL;
-    }
-    fprintf(file, "{\"r\":%d,\"g\":%d,\"b\":%d}", r, g, b);
-    fclose(file);
-    return ESP_OK;
-}
-
 /* Legacy set_rgb action — matches old tool_rgb behavior exactly */
 static esp_err_t handle_set_rgb(cJSON *root, char *out, size_t sz)
 {
@@ -1315,12 +1299,6 @@ static esp_err_t handle_set_rgb(cJSON *root, char *out, size_t sz)
     if (err == ESP_OK) err = led_strip_refresh(strip);
     if (err != ESP_OK) {
         reply_error(out, sz, "RGB update failed: %s", esp_err_to_name(err));
-        return err;
-    }
-
-    err = write_rgb_to_file(r, g, b);
-    if (err != ESP_OK) {
-        reply_error(out, sz, "Failed to write RGB values to file");
         return err;
     }
 
@@ -1447,54 +1425,5 @@ esp_err_t tool_gpio_init(void)
     s_uart_count = 0;
 
     ESP_LOGI(TAG, "GPIO tool initialized");
-    return ESP_OK;
-}
-
-/* Restore onboard RGB from SPIFFS (replaces read_rgb_from_file_and_apply) */
-esp_err_t tool_gpio_rgb_restore(void)
-{
-    tool_gpio_init();
-
-    FILE *file = fopen(RGB_FILE_PATH, "r");
-    if (!file) {
-        ESP_LOGW(TAG, "No saved RGB state (%s)", RGB_FILE_PATH);
-        return ESP_OK;
-    }
-
-    char buf[64];
-    size_t n = fread(buf, 1, sizeof(buf) - 1, file);
-    fclose(file);
-    buf[n] = '\0';
-
-    cJSON *json = cJSON_Parse(buf);
-    if (!json) {
-        ESP_LOGW(TAG, "Invalid JSON in %s", RGB_FILE_PATH);
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    int r = 0, g = 0, b = 0;
-    cJSON *jr = cJSON_GetObjectItem(json, "r");
-    cJSON *jg = cJSON_GetObjectItem(json, "g");
-    cJSON *jb = cJSON_GetObjectItem(json, "b");
-    if (cJSON_IsNumber(jr)) r = jr->valueint;
-    if (cJSON_IsNumber(jg)) g = jg->valueint;
-    if (cJSON_IsNumber(jb)) b = jb->valueint;
-    cJSON_Delete(json);
-
-    char out[128];
-    led_strip_handle_t strip = rgb_get_strip(48, 1, out, sizeof(out));
-    if (!strip) {
-        ESP_LOGE(TAG, "RGB restore: strip init failed");
-        return ESP_FAIL;
-    }
-
-    esp_err_t err = led_strip_set_pixel(strip, 0, (uint32_t)r, (uint32_t)g, (uint32_t)b);
-    if (err == ESP_OK) err = led_strip_refresh(strip);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "RGB restore failed: %s", esp_err_to_name(err));
-        return err;
-    }
-
-    ESP_LOGI(TAG, "RGB restored to R:%d G:%d B:%d", r, g, b);
     return ESP_OK;
 }

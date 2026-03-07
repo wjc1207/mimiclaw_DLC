@@ -116,7 +116,6 @@ void app_main(void)
 
     //gpio
     ESP_ERROR_CHECK(tool_gpio_init());
-    tool_gpio_rgb_restore();
 
     /* Initialize subsystems */
     ESP_ERROR_CHECK(message_bus_init());

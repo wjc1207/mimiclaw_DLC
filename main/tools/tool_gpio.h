@@ -21,9 +21,3 @@ esp_err_t tool_gpio_execute(const char *input_json,
  * Safe to call multiple times.
  */
 esp_err_t tool_gpio_init(void);
-
-/**
- * Restore persisted RGB state from SPIFFS (called at boot).
- * Replaces the former read_rgb_from_file_and_apply().
- */
-esp_err_t tool_gpio_rgb_restore(void);
