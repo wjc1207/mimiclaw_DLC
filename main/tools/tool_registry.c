@@ -217,14 +217,15 @@ esp_err_t tool_registry_init(void)
  /* Register http_request */
     mimi_tool_t hr = {
         .name = "http_request",
-        .description = "Make HTTP requests to external APIs and websites. Supports GET, POST, PUT, DELETE, PATCH, HEAD methods. Use for API calls, fetching data from URLs, etc.",
+        .description = "Make HTTP requests to external APIs and websites. Supports GET, POST, PUT, DELETE, PATCH, HEAD methods. Use for API calls, fetching data from URLs, etc. Set enable_image_analysis to true to capture an image from a URL and return it as base64 for vision analysis.",
         .input_schema_json =
             "{\"type\":\"object\","
             "\"properties\":{"
             "\"url\":{\"type\":\"string\",\"description\":\"HTTP or HTTPS URL to request\"},"
             "\"method\":{\"type\":\"string\",\"description\":\"HTTP method: GET, POST, PUT, DELETE, PATCH, HEAD (default: GET)\"},"
             "\"headers\":{\"type\":\"object\",\"description\":\"Optional HTTP headers as key-value pairs\"},"
-            "\"body\":{\"type\":\"string\",\"description\":\"Optional request body (for POST, PUT, PATCH)\"}"
+            "\"body\":{\"type\":\"string\",\"description\":\"Optional request body (for POST, PUT, PATCH)\"},"
+            "\"enable_image_analysis\":{\"type\":\"boolean\",\"description\":\"When true, treat the response as an image, base64-encode it, and return it for LLM vision analysis\"}"
             "},"
             "\"required\":[\"url\"]}",
         .execute = tool_http_request_execute,
