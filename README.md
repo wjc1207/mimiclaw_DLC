@@ -13,10 +13,14 @@ Inspired by [mimiclaw](https://github.com/memovai/mimiclaw) that enables LLM-con
 
 ## Quick Start
 
-Clone into your mimiclaw project's components directory:
 ```bash
-cd /path/to/your/mimiclaw/project/components
-git clone https://github.com/wjc1207/mimiclaw_DLC.git
+# You need ESP-IDF v5.5+ installed first:
+# https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32s3/get-started/
+
+git clone https://github.com/memovai/mimiclaw.git
+cd mimiclaw
+
+idf.py set-target esp32s3
 ```
 
 ## Usage
