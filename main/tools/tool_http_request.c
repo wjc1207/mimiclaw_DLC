@@ -370,7 +370,7 @@ esp_err_t tool_http_request_execute(const char *input_json, char *output, size_t
 
         /* Write media type as first line */
         size_t mt_len = strlen(media_type);
-        if (mt_len + 2 >= output_size) {   /* media_type + '\n' + '\0' */
+        if (mt_len + 2 > output_size) {   /* media_type + '\n' + '\0' */
             free(hb.data);
             snprintf(output, output_size, "Error: Output buffer too small");
             return ESP_ERR_NO_MEM;

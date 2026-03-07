@@ -173,7 +173,7 @@ static cJSON *build_tool_results(const llm_response_t *resp, const mimi_msg_t *m
                     is_image_result = true;
                     /* Output format: "<media_type>\n<base64_data>" */
                     char *newline = strchr(tool_output, '\n');
-                    if (newline && (newline - tool_output) < (int)sizeof(media_type)) {
+                    if (newline && (size_t)(newline - tool_output) < sizeof(media_type)) {
                         size_t mt_len = newline - tool_output;
                         memcpy(media_type, tool_output, mt_len);
                         media_type[mt_len] = '\0';
@@ -213,7 +213,8 @@ static cJSON *build_tool_results(const llm_response_t *resp, const mimi_msg_t *m
             char *url_buf = malloc(url_len + 1);
             if (url_buf) {
                 memcpy(url_buf, prefix, prefix_len);
-                memcpy(url_buf + prefix_len, image_b64, b64_len + 1);
+                memcpy(url_buf + prefix_len, image_b64, b64_len);
+                url_buf[url_len] = '\0';
                 cJSON *content_array = cJSON_CreateArray();
                 cJSON *img_block = cJSON_CreateObject();
                 cJSON_AddStringToObject(img_block, "type", "image_url");
