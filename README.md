@@ -43,7 +43,8 @@ idf.py -p PORT flash monitor
 |----------|-------|
 | **GPIO Control** | Single `gpio` tool for all hardware I/O: GPIO, I²C, SPI, RGB/WS2812B, PWM, UART, 1-Wire | 
 | **Web Search** | Search anything on the Internet | 
-
+| **Script** | write and run `lua` script in real time | 
+ 
 ## Supported LLM Providers
 
 | Provider | Value | API Endpoint | Notes |
