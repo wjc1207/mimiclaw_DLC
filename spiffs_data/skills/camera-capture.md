@@ -1,6 +1,7 @@
 # Camera Capture
 
 Capture an image from the network camera using http_request.
+Camera URL default: `http://192.168.3.40/capture` — update if your camera has a different address.
 
 ## When to use
 When the user asks to take a photo, capture an image, see what the camera sees, or check the camera.
