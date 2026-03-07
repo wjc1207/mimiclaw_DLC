@@ -86,24 +86,24 @@
 
 /* Memory / SPIFFS */
 #define MIMI_SPIFFS_BASE             "/spiffs"
-#define MIMI_SPIFFS_CONFIG_DIR       "/spiffs/config"
-#define MIMI_SPIFFS_MEMORY_DIR       "/spiffs/memory"
-#define MIMI_SPIFFS_SESSION_DIR      "/spiffs/sessions"
-#define MIMI_MEMORY_FILE             "/spiffs/memory/MEMORY.md"
-#define MIMI_SOUL_FILE               "/spiffs/config/SOUL.md"
-#define MIMI_USER_FILE               "/spiffs/config/USER.md"
+#define MIMI_SPIFFS_CONFIG_DIR       MIMI_SPIFFS_BASE "/config"
+#define MIMI_SPIFFS_MEMORY_DIR       MIMI_SPIFFS_BASE "/memory"
+#define MIMI_SPIFFS_SESSION_DIR      MIMI_SPIFFS_BASE "/sessions"
+#define MIMI_MEMORY_FILE             MIMI_SPIFFS_MEMORY_DIR "/MEMORY.md"
+#define MIMI_SOUL_FILE               MIMI_SPIFFS_CONFIG_DIR "/SOUL.md"
+#define MIMI_USER_FILE               MIMI_SPIFFS_CONFIG_DIR "/USER.md"
 #define MIMI_CONTEXT_BUF_SIZE        (16 * 1024)
 #define MIMI_SESSION_MAX_MSGS        20
 
 /* Cron / Heartbeat */
-#define MIMI_CRON_FILE               "/spiffs/cron.json"
+#define MIMI_CRON_FILE               MIMI_SPIFFS_BASE "/cron.json"
 #define MIMI_CRON_MAX_JOBS           16
 #define MIMI_CRON_CHECK_INTERVAL_MS  (60 * 1000)
-#define MIMI_HEARTBEAT_FILE          "/spiffs/HEARTBEAT.md"
+#define MIMI_HEARTBEAT_FILE          MIMI_SPIFFS_BASE "/HEARTBEAT.md"
 #define MIMI_HEARTBEAT_INTERVAL_MS   (30 * 60 * 1000)
 
 /* Skills */
-#define MIMI_SKILLS_PREFIX           "/spiffs/skills/"
+#define MIMI_SKILLS_PREFIX           MIMI_SPIFFS_BASE "/skills/"
 
 /* WebSocket Gateway */
 #define MIMI_WS_PORT                 18789
