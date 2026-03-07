@@ -3,6 +3,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
+#include <stdint.h>
 #include <errno.h>
 
 #include "esp_log.h"
@@ -32,6 +34,7 @@ static const char *TAG = "tool_gpio";
 #define MAX_PWM_CHANNELS    8
 #define MAX_UART_PORTS      2           /* UART1 and UART2 for users     */
 #define RMT_RESOLUTION      (10 * 1000 * 1000) /* 10 MHz */
+#define LEDC_DUTY_MAX       8191    /* 2^13 - 1, for LEDC_TIMER_13_BIT */
 #define RGB_FILE_PATH       "/spiffs/rgb.txt"
 #define I2C_TIMEOUT_MS      1000
 #define MAX_TRANSFER_BYTES  256
@@ -192,7 +195,7 @@ static int format_byte_array(const uint8_t *data, int len, char *buf, size_t sz)
 {
     int pos = 0;
     pos += snprintf(buf + pos, sz - pos, "[");
-    for (int i = 0; i < len && pos < (int)sz - 8; i++) {
+    for (int i = 0; i < len && (size_t)pos < sz - 6; i++) {
         if (i > 0) pos += snprintf(buf + pos, sz - pos, ",");
         pos += snprintf(buf + pos, sz - pos, "%d", data[i]);
     }
@@ -852,9 +855,8 @@ static esp_err_t handle_rgb_show(cJSON *root, char *out, size_t sz)
     led_strip_handle_t strip = rgb_get_strip(pin, np, out, sz);
     if (!strip) return ESP_ERR_INVALID_STATE;
 
-    /* brightness parameter (0.0 – 1.0) is noted but the led_strip API does not
-       expose per-show brightness.  We log it but the hardware applies full
-       brightness.  Future enhancement: scale pixel buffer before refresh. */
+    /* brightness parameter (0.0 – 1.0) is accepted but not yet applied —
+       the led_strip API does not expose per-show brightness scaling. */
 
     esp_err_t err = led_strip_refresh(strip);
     if (err != ESP_OK) {
@@ -928,7 +930,7 @@ static esp_err_t handle_pwm_start(cJSON *root, char *out, size_t sz)
         return err;
     }
 
-    uint32_t duty_val = ((uint32_t)duty * 8191) / 100;
+    uint32_t duty_val = ((uint32_t)duty * LEDC_DUTY_MAX) / 100;
 
     ledc_channel_config_t ccfg = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
@@ -970,7 +972,7 @@ static esp_err_t handle_pwm_set_duty(cJSON *root, char *out, size_t sz)
         return ESP_ERR_INVALID_STATE;
     }
 
-    uint32_t duty_val = ((uint32_t)duty * 8191) / 100;
+    uint32_t duty_val = ((uint32_t)duty * LEDC_DUTY_MAX) / 100;
     ledc_set_duty(LEDC_LOW_SPEED_MODE, s_pwm[idx].channel, duty_val);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, s_pwm[idx].channel);
 
@@ -1122,9 +1124,9 @@ static esp_err_t handle_uart_read(cJSON *root, char *out, size_t sz)
     if (port < 0) return ESP_ERR_INVALID_STATE;
 
     uint8_t buf[MAX_TRANSFER_BYTES];
-    int timeout_ticks = (int)(timeout * 1000 / portTICK_PERIOD_MS);
+    TickType_t timeout_ticks = (TickType_t)((timeout * 1000.0) / portTICK_PERIOD_MS);
     if (timeout_ticks < 1) timeout_ticks = 1;
-    int nread = uart_read_bytes((uart_port_t)port, buf, (uint32_t)length, (TickType_t)timeout_ticks);
+    int nread = uart_read_bytes((uart_port_t)port, buf, (uint32_t)length, timeout_ticks);
     if (nread < 0) nread = 0;
 
     char arr[MAX_TRANSFER_BYTES * 4 + 4];
@@ -1207,10 +1209,8 @@ static esp_err_t handle_onewire_scan(cJSON *root, char *out, size_t sz)
     };
     gpio_config(&cfg);
 
-    /* Simple scan: issue Search ROM (0xF0) and collect one device at a time.
-       For simplicity we issue Read ROM (0x33) which works when only one
-       device is on the bus, or do a full search.  Here we implement a
-       basic single-device read ROM for demonstration. */
+    /* Simple single-device Read ROM (0x33) — works when only one device
+       is on the bus.  A full Search ROM (0xF0) algorithm is not implemented. */
     if (!onewire_reset(pin)) {
         reply_ok(out, sz, "[]");
         return ESP_OK;
@@ -1439,7 +1439,7 @@ esp_err_t tool_gpio_init(void)
     if (!s_mutex) return ESP_ERR_NO_MEM;
 
     memset(s_pin_usage, PIN_FREE, sizeof(s_pin_usage));
-    memset(s_edge_count, 0, sizeof(s_edge_count));
+    for (int i = 0; i < GPIO_PIN_MAX; i++) s_edge_count[i] = 0;
     s_i2c_count  = 0;
     s_spi_count  = 0;
     s_rgb_count  = 0;
@@ -1461,17 +1461,25 @@ esp_err_t tool_gpio_rgb_restore(void)
         return ESP_OK;
     }
 
-    int r = 0, g = 0, b = 0;
-    if (fscanf(file, "{\"r\": %d, \"g\": %d, \"b\": %d}", &r, &g, &b) != 3) {
-        /* Try without spaces (written by write_rgb_to_file) */
-        rewind(file);
-        if (fscanf(file, "{\"r\":%d,\"g\":%d,\"b\":%d}", &r, &g, &b) != 3) {
-            ESP_LOGW(TAG, "Invalid data in %s", RGB_FILE_PATH);
-            fclose(file);
-            return ESP_ERR_INVALID_ARG;
-        }
-    }
+    char buf[64];
+    size_t n = fread(buf, 1, sizeof(buf) - 1, file);
     fclose(file);
+    buf[n] = '\0';
+
+    cJSON *json = cJSON_Parse(buf);
+    if (!json) {
+        ESP_LOGW(TAG, "Invalid JSON in %s", RGB_FILE_PATH);
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    int r = 0, g = 0, b = 0;
+    cJSON *jr = cJSON_GetObjectItem(json, "r");
+    cJSON *jg = cJSON_GetObjectItem(json, "g");
+    cJSON *jb = cJSON_GetObjectItem(json, "b");
+    if (cJSON_IsNumber(jr)) r = jr->valueint;
+    if (cJSON_IsNumber(jg)) g = jg->valueint;
+    if (cJSON_IsNumber(jb)) b = jb->valueint;
+    cJSON_Delete(json);
 
     char out[128];
     led_strip_handle_t strip = rgb_get_strip(48, 1, out, sizeof(out));
