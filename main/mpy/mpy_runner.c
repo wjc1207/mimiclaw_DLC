@@ -13,9 +13,12 @@
 
 static const char *TAG = "mpy_runner";
 
-#define MPY_HEAP_SIZE    (64 * 1024)   // 64 KB from PSRAM
+#define MPY_HEAP_SIZE    (64 * 1024)   // 64 KB from PSRAM (see Memory Budget in docs)
 #define MPY_OUTPUT_SIZE  (4  * 1024)   // 4 KB output capture buffer
 #define MPY_TASK_STACK   (16 * 1024)   // 16 KB task stack
+
+// Mutex to serialize script executions (one at a time)
+static SemaphoreHandle_t s_runner_mutex = NULL;
 
 // Output capture buffer — filled by mp_hal_stdout_tx_strn()
 static char  s_output_buf[MPY_OUTPUT_SIZE];
@@ -57,6 +60,21 @@ esp_err_t mpy_runner_exec(const char *script_path, int timeout_ms,
 {
     if (!script_path || !out_buf) return ESP_ERR_INVALID_ARG;
 
+    // Create the runner mutex on first call
+    if (!s_runner_mutex) {
+        s_runner_mutex = xSemaphoreCreateMutex();
+        if (!s_runner_mutex) {
+            *out_buf = strdup("Failed to create runner mutex");
+            return ESP_FAIL;
+        }
+    }
+
+    // Serialize script executions to protect the shared output buffer
+    if (xSemaphoreTake(s_runner_mutex, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) {
+        *out_buf = strdup("Another script is still running");
+        return ESP_FAIL;
+    }
+
     // Reset output buffer
     s_output_len = 0;
     memset(s_output_buf, 0, sizeof(s_output_buf));
@@ -64,6 +82,7 @@ esp_err_t mpy_runner_exec(const char *script_path, int timeout_ms,
     // Allocate interpreter heap from PSRAM
     void *heap = heap_caps_malloc(MPY_HEAP_SIZE, MALLOC_CAP_SPIRAM);
     if (!heap) {
+        xSemaphoreGive(s_runner_mutex);
         *out_buf = strdup("Failed to allocate MicroPython heap (out of PSRAM)");
         return ESP_ERR_NO_MEM;
     }
@@ -72,6 +91,7 @@ esp_err_t mpy_runner_exec(const char *script_path, int timeout_ms,
     FILE *f = fopen(script_path, "r");
     if (!f) {
         heap_caps_free(heap);
+        xSemaphoreGive(s_runner_mutex);
         *out_buf = strdup("Cannot open script file");
         return ESP_ERR_NOT_FOUND;
     }
@@ -82,6 +102,7 @@ esp_err_t mpy_runner_exec(const char *script_path, int timeout_ms,
     if (!src) {
         fclose(f);
         heap_caps_free(heap);
+        xSemaphoreGive(s_runner_mutex);
         *out_buf = strdup("Failed to allocate script buffer");
         return ESP_ERR_NO_MEM;
     }
@@ -94,6 +115,7 @@ esp_err_t mpy_runner_exec(const char *script_path, int timeout_ms,
     if (!done_sem) {
         heap_caps_free(src);
         heap_caps_free(heap);
+        xSemaphoreGive(s_runner_mutex);
         *out_buf = strdup("Failed to create semaphore");
         return ESP_FAIL;
     }
@@ -113,6 +135,7 @@ esp_err_t mpy_runner_exec(const char *script_path, int timeout_ms,
         vSemaphoreDelete(done_sem);
         heap_caps_free(src);
         heap_caps_free(heap);
+        xSemaphoreGive(s_runner_mutex);
         *out_buf = strdup("Failed to create MicroPython execution task");
         return ESP_FAIL;
     }
@@ -122,6 +145,8 @@ esp_err_t mpy_runner_exec(const char *script_path, int timeout_ms,
     if (timed_out) {
         ESP_LOGW(TAG, "MicroPython script timed out after %d ms", timeout_ms);
         vTaskDelete(task_handle);
+        // Brief yield to let the deleted task's resources be reclaimed
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
     vSemaphoreDelete(done_sem);
 
@@ -140,10 +165,12 @@ esp_err_t mpy_runner_exec(const char *script_path, int timeout_ms,
                      s_output_buf, timeout_ms);
         }
         *out_buf = result ? result : strdup("[Timeout]");
+        xSemaphoreGive(s_runner_mutex);
         return ESP_FAIL;
     }
 
     *out_buf = strdup(s_output_buf);
     ESP_LOGI(TAG, "Script %s finished", script_path);
+    xSemaphoreGive(s_runner_mutex);
     return ESP_OK;
 }
