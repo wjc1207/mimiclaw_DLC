@@ -8,11 +8,8 @@ releases/
 sdkconfig
 sdkconfig.old
 dependencies.lock
+components/
 managed_components/
-
-# components/ — ignore managed components, track our own
-components/*
-!components/micropython_embed/
 
 # Generated headers
 main/assets/lang_config.h
