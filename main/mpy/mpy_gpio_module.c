@@ -249,6 +249,9 @@ static MP_DEFINE_CONST_FUN_OBJ_1(mpy_sleep_ms_obj, mpy_sleep_ms);
 
 /* ── Runtime registration ─────────────────────────────────── */
 
+// Create a module with the given name and populate it with the given attributes.
+// mp_obj_new_module() also registers the module into mp_loaded_modules_dict,
+// making it importable via "import <name>".
 static void register_module(const char *name,
                             const char *const *attr_names,
                             const mp_obj_t *attr_objs,
