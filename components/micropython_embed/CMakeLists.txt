@@ -1,6 +1,7 @@
+# components/micropython_embed/CMakeLists.txt
+
 cmake_minimum_required(VERSION 3.16)
 
-# Collect all generated C sources
 file(GLOB_RECURSE MICROPYTHON_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/py/*.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/shared/*.c"
@@ -18,5 +19,3 @@ idf_component_register(
         "${CMAKE_CURRENT_SOURCE_DIR}/extmod"
     REQUIRES    esp_psram freertos
 )
-
-# No target_compile_definitions — mpconfigport.h already defines everything

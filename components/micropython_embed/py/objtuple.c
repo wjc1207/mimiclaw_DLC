@@ -31,9 +31,6 @@
 #include "py/objtuple.h"
 #include "py/runtime.h"
 
-// type check is done on getiter method to allow tuple, namedtuple, attrtuple
-#define mp_obj_is_tuple_compatible(o) (MP_OBJ_TYPE_GET_SLOT_OR_NULL(mp_obj_get_type(o), iter) == mp_obj_tuple_getiter)
-
 /******************************************************************************/
 /* tuple                                                                      */
 
@@ -252,19 +249,6 @@ mp_obj_t mp_obj_new_tuple(size_t n, const mp_obj_t *items) {
         }
     }
     return MP_OBJ_FROM_PTR(o);
-}
-
-void mp_obj_tuple_get(mp_obj_t self_in, size_t *len, mp_obj_t **items) {
-    assert(mp_obj_is_tuple_compatible(self_in));
-    mp_obj_tuple_t *self = MP_OBJ_TO_PTR(self_in);
-    *len = self->len;
-    *items = &self->items[0];
-}
-
-void mp_obj_tuple_del(mp_obj_t self_in) {
-    assert(mp_obj_is_type(self_in, &mp_type_tuple));
-    mp_obj_tuple_t *self = MP_OBJ_TO_PTR(self_in);
-    m_del_var(mp_obj_tuple_t, items, mp_obj_t, self->len, self);
 }
 
 /******************************************************************************/
