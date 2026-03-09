@@ -1,14 +1,24 @@
-# swarmclaw
+# swarmclaw: Pocket AI Assistant on a $5 Chip
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-![EdgeClaw Banner](assets/EdgeClaw.png)
+<p align="center">
+  <img src="assets/swarmclaw.png" alt="swarmclaw" width="500" />
+</p>
 
-Inspired by [mimiclaw](https://github.com/memovai/mimiclaw) that enables LLM-controlled hardware interaction with ESP32 devices.
+**A branch of existing project [mimiclaw](https://github.com/memovai/mimiclaw)**
 
-## Features
+**The world's first AI assistant(OpenClaw) on a $5 chip. No Linux. No Node.js. Just pure C**
 
-- Run OpenClaw on a ￥30 chip.
+Swarmclaw turns a tiny ESP32-S3 board into a personal AI assistant. Plug it into USB power, connect to WiFi, and talk to it through Telegram — it handles any task you throw at it and evolves over time with local memory — all on a chip the size of a thumb.
+
+## Meet Swarmclaw
+
+- **Tiny** — No Linux, no Node.js, no bloat — just pure C
+- **Handy** — Message it from Telegram, it handles the rest
+- **Loyal** — Learns from memory, remembers across reboots
+- **Energetic** — USB power, 0.5 W, runs 24/7
+- **Lovable** — One ESP32-S3 board, $5, nothing else
 
 ## Quick Start
 
