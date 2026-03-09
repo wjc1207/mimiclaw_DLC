@@ -1,7 +1,6 @@
 #include "cron/cron_service.h"
 #include "mimi_config.h"
 #include "bus/message_bus.h"
-#include "tools/tool_get_time.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -303,24 +302,22 @@ static void cron_task_main(void *arg)
 {
     (void)arg;
 
-    // initialize time by fetching from proxy or direct HTTP
-    char time_buf[64];
-    esp_err_t err = ESP_FAIL;
-    for (int attempt = 0; attempt < 5; ++attempt) {
-        err = tool_get_time_execute(NULL, time_buf, sizeof(time_buf));
-        if (err == ESP_OK) break;
-        vTaskDelay(pdMS_TO_TICKS(1000)); // backoff
+    // Wait for the SNTP-synced system clock to be set
+    time_t now = 0;
+    for (int attempt = 0; attempt < 10; ++attempt) {
+        now = time(NULL);
+        if (now > 100000) break;   /* clock is set */
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Time sync failed; cron will not start");
+    if (now < 100000) {
+        ESP_LOGE(TAG, "System clock not set (SNTP pending); cron will not start");
         s_cron_task = NULL;
         vTaskDelete(NULL);
         return;
     }
 
     /* Recompute next_run for all enabled jobs that don't have one */
-    time_t now = time(NULL);
     for (int i = 0; i < s_job_count; i++) {
         cron_job_t *job = &s_jobs[i];
         if (job->enabled && job->next_run <= 0) {
