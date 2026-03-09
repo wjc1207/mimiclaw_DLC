@@ -3,18 +3,24 @@
 
 #include <string.h>
 #include <inttypes.h>
+#include <time.h>
+#include <sys/time.h>
 #include "esp_log.h"
 #include "esp_wifi.h"
 #include "esp_netif.h"
+#include "esp_netif_sntp.h"
 #include "nvs_flash.h"
 #include "nvs.h"
 
 static const char *TAG = "wifi";
 
+#define SNTP_SYNC_TIMEOUT_MS  10000  /* 10-second timeout for initial sync */
+
 static EventGroupHandle_t s_wifi_event_group;
 static int s_retry_count = 0;
 static char s_ip_str[16] = "0.0.0.0";
 static bool s_connected = false;
+static bool s_sntp_initialized = false;
 
 static const char *wifi_reason_to_str(wifi_err_reason_t reason)
 {
@@ -31,6 +37,47 @@ static const char *wifi_reason_to_str(wifi_err_reason_t reason)
     case WIFI_REASON_CONNECTION_FAIL: return "CONNECTION_FAIL";
     default: return "UNKNOWN";
     }
+}
+
+static void time_sync_notification_cb(struct timeval *tv)
+{
+    time_t now = tv->tv_sec;
+    struct tm timeinfo;
+    localtime_r(&now, &timeinfo);
+    char buf[64];
+    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S %Z", &timeinfo);
+    ESP_LOGI(TAG, "SNTP synced: %s", buf);
+}
+
+static void sntp_sync_task(void *arg)
+{
+    if (esp_netif_sntp_sync_wait(pdMS_TO_TICKS(SNTP_SYNC_TIMEOUT_MS)) != ESP_OK) {
+        ESP_LOGW(TAG, "SNTP initial sync timed out (%ds) – retries continue in background",
+                 SNTP_SYNC_TIMEOUT_MS / 1000);
+    }
+    vTaskDelete(NULL);
+}
+
+static void sntp_time_sync_init(void)
+{
+    if (s_sntp_initialized) {
+        return;
+    }
+
+    setenv("TZ", MIMI_TIMEZONE, 1);
+    tzset();
+
+    esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
+    config.sync_cb = time_sync_notification_cb;
+    esp_err_t ret = esp_netif_sntp_init(&config);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "SNTP init failed: %s", esp_err_to_name(ret));
+        return;
+    }
+    s_sntp_initialized = true;
+    ESP_LOGI(TAG, "SNTP started, waiting for initial sync...");
+
+    xTaskCreate(sntp_sync_task, "sntp_sync", 2048, NULL, 3, NULL);
 }
 
 static void event_handler(void *arg, esp_event_base_t event_base,
@@ -67,6 +114,8 @@ static void event_handler(void *arg, esp_event_base_t event_base,
         s_connected = true;
 
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+
+        sntp_time_sync_init();
     }
 }
 
