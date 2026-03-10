@@ -60,6 +60,7 @@ static void mpy_exec_task(void *arg)
     void *heap = heap_caps_malloc(MPY_HEAP_SIZE,
                                   MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!heap) {
+        ESP_LOGE(TAG, "Failed to allocate %d bytes for MicroPython heap", MPY_HEAP_SIZE);
         tc->result = -1;
         xSemaphoreGive(tc->done_sem);
         vTaskDelete(NULL);
