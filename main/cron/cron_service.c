@@ -301,21 +301,7 @@ static void cron_process_due_jobs(void)
 static void cron_task_main(void *arg)
 {
     (void)arg;
-
-    // Wait for the SNTP-synced system clock to be set
-    time_t now = 0;
-    for (int attempt = 0; attempt < 10; ++attempt) {
-        now = time(NULL);
-        if (now > 100000) break;   /* clock is set */
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-
-    if (now < 100000) {
-        ESP_LOGE(TAG, "System clock not set (SNTP pending); cron will not start");
-        s_cron_task = NULL;
-        vTaskDelete(NULL);
-        return;
-    }
+    time_t now = time(NULL);
 
     /* Recompute next_run for all enabled jobs that don't have one */
     for (int i = 0; i < s_job_count; i++) {
