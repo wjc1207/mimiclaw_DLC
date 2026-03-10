@@ -178,8 +178,13 @@ esp_err_t mpy_runner_exec(const char *script_path, int timeout_ms,
         return ESP_FAIL;
     }
 
-    /* mp_embed_exec_str always returns void; errors are printed to capture buf */
-    if (ctx.len > 0 && strstr(ctx.buf, "Traceback") != NULL) {
+    /* mp_embed_exec_str always returns void; errors are printed to capture buf.
+     * MicroPython formats uncaught exceptions as:
+     *   Traceback (most recent call last):
+     *     File "<stdin>", line N, ...
+     *   ExceptionType: message
+     */
+    if (ctx.len > 0 && strstr(ctx.buf, "Traceback (most recent call last):") != NULL) {
         *out_buf = strdup(ctx.buf);
         ESP_LOGI(TAG, "Script %s finished with error", script_path);
         return ESP_FAIL;

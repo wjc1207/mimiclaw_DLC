@@ -26,7 +26,7 @@ static void gpio_json_exec(const char *json_str)
     char out[512];
     esp_err_t err = tool_gpio_execute(json_str, out, sizeof(out));
     if (err != ESP_OK) {
-        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT(out));
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("%s"), out);
     }
 }
 
@@ -39,7 +39,7 @@ static mp_obj_t gpio_json_exec_result(const char *json_str)
     char out[512];
     esp_err_t err = tool_gpio_execute(json_str, out, sizeof(out));
     if (err != ESP_OK) {
-        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT(out));
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("%s"), out);
     }
     cJSON *root = cJSON_Parse(out);
     if (!root) {
