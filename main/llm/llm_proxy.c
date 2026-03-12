@@ -182,6 +182,54 @@ static void resp_buf_free(resp_buf_t *rb)
     rb->cap = 0;
 }
 
+/* ── Chunked transfer encoding decoder ───────────────────────── */
+
+static void resp_buf_decode_chunked(resp_buf_t *rb)
+{
+    if (!rb->data || rb->len == 0) return;
+
+    /* Quick check: if body starts with '{' or '[', it's not chunked */
+    size_t i = 0;
+    while (i < rb->len && (rb->data[i] == ' ' || rb->data[i] == '\t')) i++;
+    if (i < rb->len && (rb->data[i] == '{' || rb->data[i] == '[')) return;
+
+    /* Try to decode chunked encoding in-place */
+    char *src = rb->data;
+    char *dst = rb->data;
+    char *end = rb->data + rb->len;
+
+    while (src < end) {
+        /* Parse hex chunk size */
+        char *line_end = strstr(src, "\r\n");
+        if (!line_end) break;
+
+        unsigned long chunk_size = strtoul(src, NULL, 16);
+        if (chunk_size == 0) break;  /* terminal chunk */
+
+        src = line_end + 2;  /* skip past \r\n after size */
+
+        if (src + chunk_size > end) {
+            /* Incomplete chunk, copy what we have */
+            size_t avail = end - src;
+            memmove(dst, src, avail);
+            dst += avail;
+            break;
+        }
+
+        memmove(dst, src, chunk_size);
+        dst += chunk_size;
+        src += chunk_size;
+
+        /* Skip trailing \r\n after chunk data */
+        if (src + 2 <= end && src[0] == '\r' && src[1] == '\n') {
+            src += 2;
+        }
+    }
+
+    rb->len = dst - rb->data;
+    rb->data[rb->len] = '\0';
+}
+
 /* ── HTTP event handler (for esp_http_client direct path) ─────── */
 
 static esp_err_t http_event_handler(esp_http_client_event_t *evt)
@@ -360,6 +408,9 @@ static esp_err_t llm_http_via_proxy(const char *post_data, resp_buf_t *rb, int *
         rb->len = blen;
         rb->data[rb->len] = '\0';
     }
+
+    /* Decode chunked transfer encoding if present */
+    resp_buf_decode_chunked(rb);
 
     return ESP_OK;
 }
@@ -791,13 +842,7 @@ esp_err_t llm_chat_tools(const char *system_prompt,
     }
 
     /* Parse full JSON response */
-    char *json_start = strchr(rb.data, '{');
-    if (!json_start) {
-        ESP_LOGE(TAG, "No JSON object found in response");
-        resp_buf_free(&rb);
-        return ESP_FAIL;
-    }
-    cJSON *root = cJSON_Parse(json_start);
+    cJSON *root = cJSON_Parse(rb.data);
     resp_buf_free(&rb);
 
     if (!root) {
