@@ -23,13 +23,23 @@ idf_component_register(
         "tools/tool_gpio.c"
         "tools/tool_http_request.c"
         "tools/tool_script.c"
-        "lua/lua_runner.c"
-        "lua/lua_gpio_lib.c"
+        "mpy/mpy_runner.c"
+        "mpy/mpy_gpio_module.c"
+        "mpy/mpy_stdout.c"
+        "mpy/mpy_port_io.c"
         "skills/skill_loader.c"
     INCLUDE_DIRS
         "."
     REQUIRES
         nvs_flash esp_wifi esp_netif esp_http_client esp_http_server
         esp_https_ota esp_event json spiffs console vfs app_update esp-tls
-        driver esp_timer led_strip lua
+        driver esp_timer led_strip micropython_embed
+)
+
+# Force linker to keep these symbols despite --gc-sections.
+# They are referenced from inside libmicropython_embed.a but
+# defined here in main — gc-sections drops them without -u.
+target_link_libraries(${COMPONENT_LIB} INTERFACE
+    "-Wl,-u,mp_import_stat"
+    "-Wl,-u,mp_builtin_open_obj"
 )

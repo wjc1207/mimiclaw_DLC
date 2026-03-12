@@ -791,7 +791,14 @@ esp_err_t llm_chat_tools(const char *system_prompt,
     }
 
     /* Parse full JSON response */
-    cJSON *root = cJSON_Parse(rb.data);
+    char *json_start = strchr(rb.data, '{');
+    if (!json_start) {
+        ESP_LOGE(TAG, "No JSON object found in response");
+        resp_buf_free(&rb);
+        return ESP_FAIL;
+    }
+
+    cJSON *root = cJSON_Parse(json_start);
     resp_buf_free(&rb);
 
     if (!root) {
@@ -800,52 +807,119 @@ esp_err_t llm_chat_tools(const char *system_prompt,
     }
 
     if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
+        /* -------- OpenAI / Kimi style response parsing -------- */
+
         cJSON *choices = cJSON_GetObjectItem(root, "choices");
-        cJSON *choice0 = choices && cJSON_IsArray(choices) ? cJSON_GetArrayItem(choices, 0) : NULL;
-        if (choice0) {
+        cJSON *choice0 = (choices && cJSON_IsArray(choices)) ? cJSON_GetArrayItem(choices, 0) : NULL;
+
+        if (!choice0) {
+            ESP_LOGE(TAG, "Invalid LLM response: no choices");
+        } else {
+
+            /* finish_reason */
             cJSON *finish = cJSON_GetObjectItem(choice0, "finish_reason");
             if (finish && cJSON_IsString(finish)) {
                 resp->tool_use = (strcmp(finish->valuestring, "tool_calls") == 0);
             }
 
+            /* message */
             cJSON *message = cJSON_GetObjectItem(choice0, "message");
             if (message) {
+
+                /* ---------------- content parsing ---------------- */
+
                 cJSON *content = cJSON_GetObjectItem(message, "content");
-                if (content && cJSON_IsString(content)) {
-                    size_t tlen = strlen(content->valuestring);
-                    resp->text = calloc(1, tlen + 1);
-                    if (resp->text) {
-                        memcpy(resp->text, content->valuestring, tlen);
-                        resp->text_len = tlen;
+
+                if (content) {
+
+                    /* Case 1: content is a string */
+                    if (cJSON_IsString(content)) {
+
+                        size_t tlen = strlen(content->valuestring);
+
+                        resp->text = malloc(tlen + 1);
+                        if (resp->text) {
+                            memcpy(resp->text, content->valuestring, tlen + 1);
+                            resp->text_len = tlen;
+                        }
+                    }
+
+                    /* Case 2: content is an array (multimodal / reasoning models) */
+                    else if (cJSON_IsArray(content)) {
+
+                        cJSON *blk;
+
+                        cJSON_ArrayForEach(blk, content) {
+
+                            cJSON *type = cJSON_GetObjectItem(blk, "type");
+                            if (!type || !cJSON_IsString(type))
+                                continue;
+
+                            if (strcmp(type->valuestring, "text") != 0)
+                                continue;
+
+                            cJSON *text = cJSON_GetObjectItem(blk, "text");
+                            if (!text || !cJSON_IsString(text))
+                                continue;
+
+                            size_t tlen = strlen(text->valuestring);
+
+                            resp->text = malloc(tlen + 1);
+                            if (resp->text) {
+                                memcpy(resp->text, text->valuestring, tlen + 1);
+                                resp->text_len = tlen;
+                            }
+
+                            break;
+                        }
                     }
                 }
 
+                /* ---------------- tool_calls parsing ---------------- */
+
                 cJSON *tool_calls = cJSON_GetObjectItem(message, "tool_calls");
+
                 if (tool_calls && cJSON_IsArray(tool_calls)) {
+
                     cJSON *tc;
+
                     cJSON_ArrayForEach(tc, tool_calls) {
-                        if (resp->call_count >= MIMI_MAX_TOOL_CALLS) break;
+
+                        if (resp->call_count >= MIMI_MAX_TOOL_CALLS)
+                            break;
+
                         llm_tool_call_t *call = &resp->calls[resp->call_count];
+
                         cJSON *id = cJSON_GetObjectItem(tc, "id");
                         cJSON *func = cJSON_GetObjectItem(tc, "function");
+
                         if (id && cJSON_IsString(id)) {
                             strncpy(call->id, id->valuestring, sizeof(call->id) - 1);
                         }
+
                         if (func) {
+
                             cJSON *name = cJSON_GetObjectItem(func, "name");
                             cJSON *args = cJSON_GetObjectItem(func, "arguments");
+
                             if (name && cJSON_IsString(name)) {
                                 strncpy(call->name, name->valuestring, sizeof(call->name) - 1);
                             }
+
                             if (args && cJSON_IsString(args)) {
-                                call->input = strdup(args->valuestring);
+
+                                call->input_len = strlen(args->valuestring);
+
+                                call->input = malloc(call->input_len + 1);
                                 if (call->input) {
-                                    call->input_len = strlen(call->input);
+                                    memcpy(call->input, args->valuestring, call->input_len + 1);
                                 }
                             }
                         }
+
                         resp->call_count++;
                     }
+
                     if (resp->call_count > 0) {
                         resp->tool_use = true;
                     }
