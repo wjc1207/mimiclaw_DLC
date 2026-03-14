@@ -6,14 +6,30 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <time.h>
+#include <inttypes.h>
 #include "esp_log.h"
 #include "cJSON.h"
 
 static const char *TAG = "session";
 
+static uint32_t fnv1a32(const char *s)
+{
+    uint32_t h = 2166136261u;
+    if (!s) {
+        return h;
+    }
+    while (*s) {
+        h ^= (uint8_t)(*s++);
+        h *= 16777619u;
+    }
+    return h;
+}
+
 static void session_path(const char *chat_id, char *buf, size_t size)
 {
-    snprintf(buf, size, "%s/tg_%s.jsonl", MIMI_SPIFFS_SESSION_DIR, chat_id);
+    /* SPIFFS filename length is limited; store by hashed ID to avoid long path failures. */
+    uint32_t key = fnv1a32(chat_id);
+    snprintf(buf, size, "%s/s_%08" PRIx32 ".jsonl", MIMI_SPIFFS_BASE, key);
 }
 
 esp_err_t session_mgr_init(void)
@@ -152,7 +168,7 @@ void session_list(void)
     struct dirent *entry;
     int count = 0;
     while ((entry = readdir(dir)) != NULL) {
-        if (strstr(entry->d_name, "tg_") && strstr(entry->d_name, ".jsonl")) {
+        if (strstr(entry->d_name, "s_") && strstr(entry->d_name, ".jsonl")) {
             ESP_LOGI(TAG, "  Session: %s", entry->d_name);
             count++;
         }

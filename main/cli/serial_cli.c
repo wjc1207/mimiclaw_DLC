@@ -1,7 +1,8 @@
 #include "serial_cli.h"
 #include "mimi_config.h"
 #include "wifi/wifi_manager.h"
-#include "telegram/telegram_bot.h"
+#include "channels/telegram/telegram_bot.h"
+#include "channels/feishu/feishu_bot.h"
 #include "llm/llm_proxy.h"
 #include "memory/memory_store.h"
 #include "memory/session_mgr.h"
@@ -50,7 +51,8 @@ static int cmd_wifi_set(int argc, char **argv)
 static int cmd_wifi_status(int argc, char **argv)
 {
     printf("WiFi connected: %s\n", wifi_manager_is_connected() ? "yes" : "no");
-    printf("IP: %s\n", wifi_manager_get_ip());
+    printf("IPv4: %s\n", wifi_manager_get_ip());
+    printf("IPv6: %s\n", wifi_manager_get_ipv6());
     return 0;
 }
 
@@ -59,6 +61,13 @@ static struct {
     struct arg_str *token;
     struct arg_end *end;
 } tg_token_args;
+
+/* --- tg_send command --- */
+static struct {
+    struct arg_str *chat_id;
+    struct arg_str *text;
+    struct arg_end *end;
+} tg_send_args;
 
 static int cmd_set_tg_token(int argc, char **argv)
 {
@@ -70,6 +79,61 @@ static int cmd_set_tg_token(int argc, char **argv)
     telegram_set_token(tg_token_args.token->sval[0]);
     printf("Telegram bot token saved.\n");
     return 0;
+}
+
+static int cmd_tg_send(int argc, char **argv)
+{
+    int nerrors = arg_parse(argc, argv, (void **)&tg_send_args);
+    if (nerrors != 0) {
+        arg_print_errors(stderr, tg_send_args.end, argv[0]);
+        return 1;
+    }
+
+    esp_err_t err = telegram_send_message(tg_send_args.chat_id->sval[0],
+                                          tg_send_args.text->sval[0]);
+    printf("tg_send status: %s\n", esp_err_to_name(err));
+    return (err == ESP_OK) ? 0 : 1;
+}
+
+/* --- set_feishu_creds command --- */
+static struct {
+    struct arg_str *app_id;
+    struct arg_str *app_secret;
+    struct arg_end *end;
+} feishu_creds_args;
+
+/* --- feishu_send command --- */
+static struct {
+    struct arg_str *receive_id;
+    struct arg_str *text;
+    struct arg_end *end;
+} feishu_send_args;
+
+static int cmd_set_feishu_creds(int argc, char **argv)
+{
+    int nerrors = arg_parse(argc, argv, (void **)&feishu_creds_args);
+    if (nerrors != 0) {
+        arg_print_errors(stderr, feishu_creds_args.end, argv[0]);
+        return 1;
+    }
+    feishu_set_credentials(feishu_creds_args.app_id->sval[0],
+                           feishu_creds_args.app_secret->sval[0]);
+    printf("Feishu credentials saved.\n");
+    return 0;
+}
+
+static int cmd_feishu_send(int argc, char **argv)
+{
+    int nerrors = arg_parse(argc, argv, (void **)&feishu_send_args);
+    if (nerrors != 0) {
+        arg_print_errors(stderr, feishu_send_args.end, argv[0]);
+        return 1;
+    }
+
+    esp_err_t err = feishu_send_message(feishu_send_args.receive_id->sval[0],
+                                        feishu_send_args.text->sval[0]);
+    printf("feishu_send status: %s\n", esp_err_to_name(err));
+    return (err == ESP_OK) ? 0 : 1;
 }
 
 /* --- set_api_key command --- */
@@ -483,6 +547,8 @@ static int cmd_config_show(int argc, char **argv)
     print_config("WiFi SSID",  MIMI_NVS_WIFI,   MIMI_NVS_KEY_SSID,     MIMI_SECRET_WIFI_SSID,  false);
     print_config("WiFi Pass",  MIMI_NVS_WIFI,   MIMI_NVS_KEY_PASS,     MIMI_SECRET_WIFI_PASS,  true);
     print_config("TG Token",   MIMI_NVS_TG,     MIMI_NVS_KEY_TG_TOKEN, MIMI_SECRET_TG_TOKEN,   true);
+    print_config("FS App ID",  MIMI_NVS_FEISHU, MIMI_NVS_KEY_FEISHU_APP_ID, MIMI_SECRET_FEISHU_APP_ID, true);
+    print_config("FS Secret",  MIMI_NVS_FEISHU, MIMI_NVS_KEY_FEISHU_APP_SECRET, MIMI_SECRET_FEISHU_APP_SECRET, true);
     print_config("API Key",    MIMI_NVS_LLM,    MIMI_NVS_KEY_API_KEY,  MIMI_SECRET_API_KEY,    true);
     print_config("Model",      MIMI_NVS_LLM,    MIMI_NVS_KEY_MODEL,    MIMI_SECRET_MODEL,      false);
     print_config("Provider",   MIMI_NVS_LLM,    MIMI_NVS_KEY_PROVIDER, MIMI_SECRET_MODEL_PROVIDER, false);
@@ -498,9 +564,9 @@ static int cmd_config_show(int argc, char **argv)
 static int cmd_config_reset(int argc, char **argv)
 {
     const char *namespaces[] = {
-        MIMI_NVS_WIFI, MIMI_NVS_TG, MIMI_NVS_LLM, MIMI_NVS_PROXY, MIMI_NVS_SEARCH
+        MIMI_NVS_WIFI, MIMI_NVS_TG, MIMI_NVS_FEISHU, MIMI_NVS_LLM, MIMI_NVS_PROXY, MIMI_NVS_SEARCH
     };
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 6; i++) {
         nvs_handle_t nvs;
         if (nvs_open(namespaces[i], NVS_READWRITE, &nvs) == ESP_OK) {
             nvs_erase_all(nvs);
@@ -631,6 +697,42 @@ esp_err_t serial_cli_init(void)
         .argtable = &tg_token_args,
     };
     esp_console_cmd_register(&tg_token_cmd);
+
+    /* tg_send */
+    tg_send_args.chat_id = arg_str1(NULL, NULL, "<chat_id>", "Telegram chat ID");
+    tg_send_args.text = arg_str1(NULL, NULL, "<text>", "Text message (quote if contains spaces)");
+    tg_send_args.end = arg_end(2);
+    esp_console_cmd_t tg_send_cmd = {
+        .command = "tg_send",
+        .help = "Send Telegram text: tg_send <chat_id> \"hello\"",
+        .func = &cmd_tg_send,
+        .argtable = &tg_send_args,
+    };
+    esp_console_cmd_register(&tg_send_cmd);
+
+    /* set_feishu_creds */
+    feishu_creds_args.app_id = arg_str1(NULL, NULL, "<app_id>", "Feishu App ID");
+    feishu_creds_args.app_secret = arg_str1(NULL, NULL, "<app_secret>", "Feishu App Secret");
+    feishu_creds_args.end = arg_end(2);
+    esp_console_cmd_t feishu_creds_cmd = {
+        .command = "set_feishu_creds",
+        .help = "Set Feishu app credentials (app_id app_secret)",
+        .func = &cmd_set_feishu_creds,
+        .argtable = &feishu_creds_args,
+    };
+    esp_console_cmd_register(&feishu_creds_cmd);
+
+    /* feishu_send */
+    feishu_send_args.receive_id = arg_str1(NULL, NULL, "<receive_id>", "Feishu open_id/chat_id");
+    feishu_send_args.text = arg_str1(NULL, NULL, "<text>", "Text message (quote if contains spaces)");
+    feishu_send_args.end = arg_end(2);
+    esp_console_cmd_t feishu_send_cmd = {
+        .command = "feishu_send",
+        .help = "Send Feishu text: feishu_send <open_id|chat_id> \"hello\"",
+        .func = &cmd_feishu_send,
+        .argtable = &feishu_send_args,
+    };
+    esp_console_cmd_register(&feishu_send_cmd);
 
     /* set_api_key */
     api_key_args.key = arg_str1(NULL, NULL, "<key>", "LLM API key");

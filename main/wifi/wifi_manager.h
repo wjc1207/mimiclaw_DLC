@@ -36,6 +36,11 @@ bool wifi_manager_is_connected(void);
 const char *wifi_manager_get_ip(void);
 
 /**
+ * Get the current IPv6 address string (or "::" if not available).
+ */
+const char *wifi_manager_get_ipv6(void);
+
+/**
  * Save WiFi credentials to NVS.
  */
 esp_err_t wifi_manager_set_credentials(const char *ssid, const char *password);
