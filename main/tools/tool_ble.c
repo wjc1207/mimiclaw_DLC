@@ -63,11 +63,11 @@ esp_err_t tool_ble_execute(const char *input_json, char *output, size_t output_s
         cJSON_AddBoolToObject(resp, "ok", err == ESP_OK);
         cJSON_AddStringToObject(resp, "action", "connect");
         cJSON_AddStringToObject(resp, "addr", addr_buf);
-        cJSON_AddStringToObject(resp, "status", err == ESP_OK ? "connected" : "failed");
+        cJSON_AddStringToObject(resp, "status", err == ESP_OK ? "listening" : "failed");
         if (err != ESP_OK) {
             cJSON_AddStringToObject(resp, "error", esp_err_to_name(err));
         }
-        ESP_LOGI(TAG, "BLE connect %s -> %s", addr_buf, err == ESP_OK ? "ok" : "fail");
+        ESP_LOGI(TAG, "BLE listen start %s -> %s", addr_buf, err == ESP_OK ? "ok" : "fail");
         return render_json(resp, output, output_size, err);
     }
 

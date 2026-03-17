@@ -1,21 +1,22 @@
 # BLE Temperature Humidity
 
-Read a BLE temperature and humidity sensor that exposes the Environmental Sensing Service. Use this when the user wants live temperature or humidity from a nearby BLE device.
+Read temperature and humidity from BTHome v2 BLE broadcast packets. Use this when the user wants nearby sensor values without establishing a GATT connection.
 
 ## Requirements
 
-- You need the sensor's BLE MAC address.
-- The sensor must expose service `0x181A` with temperature characteristic `0x2A6E` and humidity characteristic `0x2A6F`.
+- You need the sensor BLE MAC address.
+- The sensor must broadcast BTHome v2 service data UUID `0xFCD2`.
+- Current parser supports BTHome object IDs: temperature `0x02` and humidity `0x03`.
 
 ## How to use
 
 1. Ask for the BLE MAC address if the user did not provide it.
-2. Call `ble` with `{"action":"connect","addr":"aa:bb:cc:dd:ee:ff"}`.
-3. Call `ble` with `{"action":"read"}`.
+2. Call `ble` with `{"action":"connect","addr":"aa:bb:cc:dd:ee:ff"}` to start listening.
+3. Call `ble` with `{"action":"read"}` to get the latest parsed broadcast value.
 4. Report temperature in C and humidity in %RH.
 5. Call `ble` with `{"action":"disconnect"}` when finished.
 
 ## Notes
 
-- If connect fails, tell the user to move the sensor closer and confirm the MAC address.
-- If read fails after connect, mention that the device may not implement the expected Environmental Sensing characteristics.
+- If connect fails, tell the user to move the sensor closer, check the MAC address, and confirm the sensor is broadcasting BTHome v2.
+- Encrypted BTHome payloads are not decoded by this implementation.

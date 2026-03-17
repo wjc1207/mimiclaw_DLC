@@ -201,7 +201,7 @@ esp_err_t tool_registry_init(void)
     /* Register ble */
     mimi_tool_t ble = {
         .name = "ble",
-        .description = "Connect to a BLE temperature/humidity sensor that exposes the Environmental Sensing Service, read measurements, and disconnect.",
+        .description = "Start passive listening for BTHome v2 BLE advertisements from a sensor MAC address, read temperature/humidity from broadcasts, and stop listening.",
         .input_schema_json =
             "{\"type\":\"object\","
             "\"properties\":{"
