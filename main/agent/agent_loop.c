@@ -295,7 +295,12 @@ static void agent_loop_task(void *arg)
                                  MIMI_LLM_STREAM_BUF_SIZE, MIMI_AGENT_MAX_HISTORY);
 
         cJSON *messages = cJSON_Parse(history_json);
-        if (!messages) messages = cJSON_CreateArray();
+        if (!messages) {
+            ESP_LOGW(TAG, "History parse failed for chat_id=%s, fallback to empty history", msg.chat_id);
+            messages = cJSON_CreateArray();
+        }
+        ESP_LOGI(TAG, "Loaded history messages: %d for chat_id=%s",
+                 cJSON_GetArraySize(messages), msg.chat_id);
 
         /* 3. Append current user message */
         cJSON *user_msg = cJSON_CreateObject();
