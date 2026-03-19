@@ -55,6 +55,12 @@
 #ifndef MIMI_SECRET_SEARCH_PROVIDER
 #define MIMI_SECRET_SEARCH_PROVIDER "tavily"
 #endif
+#ifndef MIMI_ONBOARD_AP_PREFIX
+#define MIMI_ONBOARD_AP_PREFIX    "MimiClaw-"
+#endif
+#ifndef MIMI_ONBOARD_AP_PASS
+#define MIMI_ONBOARD_AP_PASS      "12345678"  /* WPA2 requires at least 8 chars */
+#endif
 
 /* WiFi */
 #define MIMI_WIFI_MAX_RETRY          10
@@ -166,8 +172,6 @@
 #define MIMI_NVS_KEY_SEARCH_PROVIDER "search_provider"
 
 /* WiFi Onboarding (Captive Portal) */
-#define MIMI_ONBOARD_AP_PREFIX    "MimiClaw-"
-#define MIMI_ONBOARD_AP_PASS      ""          /* open network */
 #define MIMI_ONBOARD_HTTP_PORT    80
 #define MIMI_ONBOARD_DNS_STACK    (4 * 1024)
 #define MIMI_ONBOARD_MAX_SCAN     20

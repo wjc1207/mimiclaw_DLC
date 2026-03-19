@@ -392,15 +392,24 @@ static esp_err_t start_softap(bool keep_sta)
     (void)keep_sta;
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
 
+    const char *ap_pass = MIMI_ONBOARD_AP_PASS;
+    size_t pass_len = strlen(ap_pass);
+    bool use_secure_ap = (pass_len >= 8 && pass_len <= 63);
+
     wifi_config_t ap_cfg = {
         .ap = {
             .max_connection = 4,
-            .authmode = WIFI_AUTH_OPEN,
+            .authmode = use_secure_ap ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN,
             .channel = 1,
         },
     };
     strncpy((char *)ap_cfg.ap.ssid, ssid, sizeof(ap_cfg.ap.ssid) - 1);
     ap_cfg.ap.ssid_len = strlen(ssid);
+    if (use_secure_ap) {
+        strncpy((char *)ap_cfg.ap.password, ap_pass, sizeof(ap_cfg.ap.password) - 1);
+    } else {
+        ESP_LOGW(TAG, "MIMI_ONBOARD_AP_PASS is invalid (need 8-63 chars), fallback to open AP");
+    }
 
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_cfg));
     esp_err_t err = esp_wifi_start();
@@ -408,7 +417,7 @@ static esp_err_t start_softap(bool keep_sta)
         return err;
     }
 
-    ESP_LOGI(TAG, "Soft AP started: %s (open)", ssid);
+    ESP_LOGI(TAG, "Soft AP started: %s (%s)", ssid, use_secure_ap ? "WPA2" : "open");
     return ESP_OK;
 }
 
