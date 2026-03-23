@@ -15,7 +15,18 @@
 typedef struct {
     char channel[16];       /* "telegram", "websocket", "cli" */
     char chat_id[96];       /* Telegram/Feishu chat_id, open_id, or WS client id */
-    char *content;          /* Heap-allocated message text (caller must free) */
+    char type[16];          /* "text" or "collapsible" */
+
+    union {
+        char *text;   // TEXT / MARKDOWN
+
+        struct {
+            char *title;
+            char *body;
+        } collapsible;
+
+    } payload;
+
 } mimi_msg_t;
 
 /**
@@ -46,3 +57,8 @@ esp_err_t message_bus_push_outbound(const mimi_msg_t *msg);
  * Caller must free msg->content when done.
  */
 esp_err_t message_bus_pop_outbound(mimi_msg_t *msg, uint32_t timeout_ms);
+
+/**
+ * Free a mimi_msg_t's content based on its type.
+ */
+esp_err_t mimi_msg_free(mimi_msg_t *msg);

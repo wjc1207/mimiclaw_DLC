@@ -84,9 +84,10 @@ static bool heartbeat_send(void)
     memset(&msg, 0, sizeof(msg));
     strncpy(msg.channel, MIMI_CHAN_SYSTEM, sizeof(msg.channel) - 1);
     strncpy(msg.chat_id, "heartbeat", sizeof(msg.chat_id) - 1);
-    msg.content = strdup(HEARTBEAT_PROMPT);
+    strncpy(msg.type, "text", sizeof(msg.type) - 1);
+    msg.payload.text = strdup(HEARTBEAT_PROMPT);
 
-    if (!msg.content) {
+    if (!msg.payload.text) {
         ESP_LOGE(TAG, "Failed to allocate heartbeat prompt");
         return false;
     }
@@ -94,7 +95,7 @@ static bool heartbeat_send(void)
     esp_err_t err = message_bus_push_inbound(&msg);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "Failed to push heartbeat message: %s", esp_err_to_name(err));
-        free(msg.content);
+        free(msg.payload.text);
         return false;
     }
 

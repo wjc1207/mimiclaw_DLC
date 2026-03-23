@@ -74,31 +74,31 @@ static void outbound_dispatch_task(void *arg)
         ESP_LOGI(TAG, "Dispatching response to %s:%s", msg.channel, msg.chat_id);
 
         if (strcmp(msg.channel, MIMI_CHAN_TELEGRAM) == 0) {
-            esp_err_t send_err = telegram_send_message(msg.chat_id, msg.content);
+            esp_err_t send_err = telegram_send_message(msg.chat_id, msg.payload.text);
             if (send_err != ESP_OK) {
                 ESP_LOGE(TAG, "Telegram send failed for %s: %s", msg.chat_id, esp_err_to_name(send_err));
             } else {
-                ESP_LOGI(TAG, "Telegram send success for %s (%d bytes)", msg.chat_id, (int)strlen(msg.content));
+                ESP_LOGI(TAG, "Telegram send success for %s (%d bytes)", msg.chat_id, (int)strlen(msg.payload.text));
             }
         } else if (strcmp(msg.channel, MIMI_CHAN_FEISHU) == 0) {
-            esp_err_t send_err = feishu_send_message(msg.chat_id, msg.content);
+            esp_err_t send_err = ESP_FAIL;
+            send_err = feishu_send_message(&msg);
             if (send_err != ESP_OK) {
                 ESP_LOGE(TAG, "Feishu send failed for %s: %s", msg.chat_id, esp_err_to_name(send_err));
-            } else {
-                ESP_LOGI(TAG, "Feishu send success for %s (%d bytes)", msg.chat_id, (int)strlen(msg.content));
-            }
+            } 
         } else if (strcmp(msg.channel, MIMI_CHAN_WEBSOCKET) == 0) {
-            esp_err_t ws_err = ws_server_send(msg.chat_id, msg.content);
+            esp_err_t ws_err = ws_server_send(msg.chat_id, msg.payload.text);
             if (ws_err != ESP_OK) {
                 ESP_LOGW(TAG, "WS send failed for %s: %s", msg.chat_id, esp_err_to_name(ws_err));
             }
         } else if (strcmp(msg.channel, MIMI_CHAN_SYSTEM) == 0) {
-            ESP_LOGI(TAG, "System message [%s]: %.128s", msg.chat_id, msg.content);
+            ESP_LOGI(TAG, "System message [%s]: %.128s", msg.chat_id, msg.payload.text);
         } else {
             ESP_LOGW(TAG, "Unknown channel: %s", msg.channel);
         }
 
-        free(msg.content);
+        /* Free message content after dispatch */
+        mimi_msg_free(&msg);
     }
 }
 
@@ -164,9 +164,9 @@ void app_main(void)
         return;  /* unreachable */
     }
 
-    //if (wifi_onboard_start(WIFI_ONBOARD_MODE_ADMIN) != ESP_OK) {
-    //    ESP_LOGW(TAG, "Local admin portal unavailable; continuing without config hotspot");
-    //}
+    if (wifi_onboard_start(WIFI_ONBOARD_MODE_ADMIN) != ESP_OK) {
+        ESP_LOGW(TAG, "Local admin portal unavailable; continuing without config hotspot");
+    }
 
     {
         /* Outbound dispatch task should start first to avoid dropping early replies. */

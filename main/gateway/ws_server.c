@@ -130,8 +130,8 @@ static esp_err_t ws_handler(httpd_req_t *req)
         mimi_msg_t msg = {0};
         strncpy(msg.channel, MIMI_CHAN_WEBSOCKET, sizeof(msg.channel) - 1);
         strncpy(msg.chat_id, chat_id, sizeof(msg.chat_id) - 1);
-        msg.content = strdup(content->valuestring);
-        if (msg.content) {
+        msg.payload.text = strdup(content->valuestring);
+        if (msg.payload.text) {
             message_bus_push_inbound(&msg);
         }
     }

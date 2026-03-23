@@ -5,6 +5,7 @@
 #include "llm/llm_proxy.h"
 #include "memory/session_mgr.h"
 #include "tools/tool_registry.h"
+#include "bus/message_bus.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -86,28 +87,6 @@ static void append_turn_context_prompt(char *prompt, size_t size, const mimi_msg
     if (n < 0 || (size_t)n >= (size - off)) {
         prompt[size - 1] = '\0';
     }
-}
-
-static char *build_tool_usage_markdown(int tool_calls)
-{
-    if (tool_calls <= 0) {
-        return NULL;
-    }
-
-    const char *msg_fmt = "Executed %d tool calls.";
-    int msg_len_i = snprintf(NULL, 0, msg_fmt, tool_calls);
-    if (msg_len_i <= 0) {
-        return NULL;
-    }
-    size_t msg_len = (size_t)msg_len_i;
-
-    char *out = malloc(msg_len + 1);
-    if (!out) {
-        return NULL;
-    }
-
-    snprintf(out, msg_len + 1, msg_fmt, tool_calls);
-    return out;
 }
 
 static char *patch_tool_input_with_context(const llm_tool_call_t *call, const mimi_msg_t *msg)
@@ -305,13 +284,14 @@ static void agent_loop_task(void *arg)
         /* 3. Append current user message */
         cJSON *user_msg = cJSON_CreateObject();
         cJSON_AddStringToObject(user_msg, "role", "user");
-        cJSON_AddStringToObject(user_msg, "content", msg.content);
+        cJSON_AddStringToObject(user_msg, "content", msg.payload.text);
         cJSON_AddItemToArray(messages, user_msg);
 
         /* 4. ReAct loop */
         char *final_text = NULL;
         int iteration = 0;
         int tool_calls_total = 0;
+        char tool_name_buf[MIMI_AGENT_MAX_TOOL_ITER*MIMI_MAX_TOOL_CALLS][32] = {{0}};
         bool sent_working_status = false;
 
         while (iteration < MIMI_AGENT_MAX_TOOL_ITER) {
@@ -321,11 +301,12 @@ static void agent_loop_task(void *arg)
                 mimi_msg_t status = {0};
                 strncpy(status.channel, msg.channel, sizeof(status.channel) - 1);
                 strncpy(status.chat_id, msg.chat_id, sizeof(status.chat_id) - 1);
-                status.content = strdup("\xF0\x9F\x90\xB1mimi is working...");
-                if (status.content) {
+                strncpy(status.type, "text", sizeof(status.type) - 1);
+                status.payload.text = strdup("\xF0\x9F\x90\xB1mimi is working...");
+                if (status.payload.text) {
                     if (message_bus_push_outbound(&status) != ESP_OK) {
                         ESP_LOGW(TAG, "Outbound queue full, drop working status");
-                        free(status.content);
+                        free(status.payload.text);
                     } else {
                         sent_working_status = true;
                     }
@@ -351,6 +332,9 @@ static void agent_loop_task(void *arg)
             }
 
             ESP_LOGI(TAG, "Tool use iteration %d: %d calls", iteration + 1, resp.call_count);
+            for (int i = tool_calls_total, j = 0; j < resp.call_count && i < MIMI_AGENT_MAX_TOOL_ITER*MIMI_MAX_TOOL_CALLS; i++, j++) {
+                strncpy(tool_name_buf[i], resp.calls[j].name, sizeof(tool_name_buf[i]) - 1);
+            }
             tool_calls_total += resp.call_count;
 
             /* Append assistant message with content array */
@@ -377,21 +361,30 @@ static void agent_loop_task(void *arg)
             if (tool_calls_total > 0 &&
                 (strcmp(msg.channel, MIMI_CHAN_FEISHU) == 0 ||
                  strcmp(msg.channel, MIMI_CHAN_TELEGRAM) == 0)) {
-                char *tool_msg_md = build_tool_usage_markdown(tool_calls_total);
-                if (tool_msg_md) {
+                    char summary[128];
+                    snprintf(summary, sizeof(summary), "本次调用了 %d 个工具", tool_calls_total);
+                    char tool_list[1024] = "";
+                    for (int i = 0; i < tool_calls_total; i++) {
+                        char tool_entry[64];
+                        snprintf(tool_entry, sizeof(tool_entry), "- %s \n ", tool_name_buf[i]);
+                        strncat(tool_list, tool_entry, sizeof(tool_list) - strlen(tool_list) - 1);
+                    }
+                if (summary[0] && tool_list[0]) {
                     mimi_msg_t tool_msg = {0};
                     strncpy(tool_msg.channel, msg.channel, sizeof(tool_msg.channel) - 1);
                     strncpy(tool_msg.chat_id, msg.chat_id, sizeof(tool_msg.chat_id) - 1);
-                    tool_msg.content = tool_msg_md;
+                    strncpy(tool_msg.type, "collapsible", sizeof(tool_msg.type) - 1);
+                    tool_msg.payload.collapsible.title = strdup(summary);
+                    tool_msg.payload.collapsible.body = strdup(tool_list);
                     if (message_bus_push_outbound(&tool_msg) != ESP_OK) {
                         ESP_LOGW(TAG, "Outbound queue full, drop tool summary message");
-                        free(tool_msg_md);
+                        mimi_msg_free(&tool_msg);
                     }
                 }
             }
 
             /* Save to session (only user text + final assistant text) */
-            esp_err_t save_user = session_append(msg.chat_id, "user", msg.content);
+            esp_err_t save_user = session_append(msg.chat_id, "user", msg.payload.text);
             esp_err_t save_asst = session_append(msg.chat_id, "assistant", final_text);
             if (save_user != ESP_OK || save_asst != ESP_OK) {
                 ESP_LOGW(TAG, "Session save failed for chat %s (user=%s, assistant=%s)",
@@ -406,7 +399,8 @@ static void agent_loop_task(void *arg)
             mimi_msg_t out = {0};
             strncpy(out.channel, msg.channel, sizeof(out.channel) - 1);
             strncpy(out.chat_id, msg.chat_id, sizeof(out.chat_id) - 1);
-            out.content = final_text;  /* transfer ownership */
+            strncpy(out.type, "text", sizeof(out.type) - 1);
+            out.payload.text = final_text;  /* transfer ownership */
             ESP_LOGI(TAG, "Queue final response to %s:%s (%d bytes)",
                      out.channel, out.chat_id, (int)strlen(final_text));
             if (message_bus_push_outbound(&out) != ESP_OK) {
@@ -421,17 +415,17 @@ static void agent_loop_task(void *arg)
             mimi_msg_t out = {0};
             strncpy(out.channel, msg.channel, sizeof(out.channel) - 1);
             strncpy(out.chat_id, msg.chat_id, sizeof(out.chat_id) - 1);
-            out.content = strdup("Sorry, I encountered an error.");
-            if (out.content) {
+            out.payload.text = strdup("Sorry, I encountered an error.");
+            if (out.payload.text) {
                 if (message_bus_push_outbound(&out) != ESP_OK) {
                     ESP_LOGW(TAG, "Outbound queue full, drop error response");
-                    free(out.content);
+                    free(out.payload.text);
                 }
             }
         }
 
         /* Free inbound message content */
-        free(msg.content);
+        mimi_msg_free(&msg);
 
         /* Log memory status */
         ESP_LOGI(TAG, "Free PSRAM: %d bytes",

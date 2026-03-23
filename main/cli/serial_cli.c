@@ -130,8 +130,11 @@ static int cmd_feishu_send(int argc, char **argv)
         return 1;
     }
 
-    esp_err_t err = feishu_send_message(feishu_send_args.receive_id->sval[0],
-                                        feishu_send_args.text->sval[0]);
+    esp_err_t err = feishu_send_message(&(mimi_msg_t){
+        .chat_id = {0},
+        .type = "text",
+        .payload.text = feishu_send_args.text->sval[0]
+    });
     printf("feishu_send status: %s\n", esp_err_to_name(err));
     return (err == ESP_OK) ? 0 : 1;
 }

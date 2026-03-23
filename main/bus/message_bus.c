@@ -57,3 +57,33 @@ esp_err_t message_bus_pop_outbound(mimi_msg_t *msg, uint32_t timeout_ms)
     }
     return ESP_OK;
 }
+
+esp_err_t mimi_msg_free(mimi_msg_t *msg)
+{
+    if (!msg) return ESP_OK;
+
+    if (strcmp(msg->type, "text") == 0) {
+
+        if (msg->payload.text) {
+            ESP_LOGI("FREE", "free text ptr=%p", msg->payload.text);
+            free(msg->payload.text);
+            msg->payload.text = NULL;
+        }
+
+    } else if (strcmp(msg->type, "collapsible") == 0) {
+
+        if (msg->payload.collapsible.title) {
+            ESP_LOGI("FREE", "free title ptr=%p", msg->payload.collapsible.title);
+            free(msg->payload.collapsible.title);
+            msg->payload.collapsible.title = NULL;
+        }
+
+        if (msg->payload.collapsible.body) {
+            ESP_LOGI("FREE", "free body ptr=%p", msg->payload.collapsible.body);
+            free(msg->payload.collapsible.body);
+            msg->payload.collapsible.body = NULL;
+        }
+    }
+
+    return ESP_OK;
+}

@@ -773,12 +773,12 @@ static void handle_message_event(cJSON *event)
     mimi_msg_t msg = {0};
     strncpy(msg.channel, MIMI_CHAN_FEISHU, sizeof(msg.channel) - 1);
     strncpy(msg.chat_id, route_id, sizeof(msg.chat_id) - 1);
-    msg.content = strdup(cleaned);
+    msg.payload.text = strdup(cleaned);
 
-    if (msg.content) {
+    if (msg.payload.text) {
         if (message_bus_push_inbound(&msg) != ESP_OK) {
             ESP_LOGW(TAG, "Inbound queue full, dropping feishu message");
-            free(msg.content);
+            free(msg.payload.text);
         }
     }
 
@@ -844,7 +844,7 @@ esp_err_t feishu_bot_start(void)
 
 /* Build Feishu interactive card content string (schema 2.0, markdown element).
  * Returns a heap-allocated JSON string; caller must free(). */
-static char *feishu_build_card_content(const char *text)
+static char *feishu_build_card_content_text(const char *text)
 {
     cJSON *card = cJSON_CreateObject();
     if (!card) return NULL;
@@ -862,95 +862,251 @@ static char *feishu_build_card_content(const char *text)
     return card_str;
 }
 
-esp_err_t feishu_send_message(const char *chat_id, const char *text)
+
+// build json content for non-markdown cards (e.g. image messages) where the content is already a JSON string
+static char *feishu_build_card_content_collapsible(const char *title, const char *body)
 {
+    cJSON *card = cJSON_CreateObject();
+    if (!card) return NULL;
+    cJSON_AddStringToObject(card, "schema", "2.0");
+    cJSON *card_body = cJSON_CreateObject();
+    cJSON *elements = cJSON_CreateArray();
+    cJSON *panel = cJSON_CreateObject();
+    cJSON_AddStringToObject(panel, "tag", "collapsible_panel");
+    cJSON_AddBoolToObject(panel, "expanded", false);
+    cJSON *header = cJSON_CreateObject();
+    cJSON *title_obj = cJSON_CreateObject();
+    cJSON_AddStringToObject(title_obj, "tag", "plain_text");
+    cJSON_AddStringToObject(title_obj, "content", title);
+    cJSON_AddItemToObject(header, "title", title_obj);
+    cJSON_AddItemToObject(panel, "header", header);
+    cJSON *body_obj = cJSON_CreateObject();
+    cJSON_AddStringToObject(body_obj, "tag", "markdown");
+    cJSON_AddStringToObject(body_obj, "content", body);
+    cJSON *panel_elements = cJSON_CreateArray();
+    cJSON_AddItemToArray(panel_elements, body_obj);
+    cJSON_AddItemToObject(panel, "elements", panel_elements);
+    cJSON_AddItemToArray(elements, panel);
+    cJSON_AddItemToObject(card_body, "elements", elements);
+    cJSON_AddItemToObject(card, "body", card_body);
+    char *card_str = cJSON_PrintUnformatted(card);
+    cJSON_Delete(card);
+    return card_str;
+}
+
+/* content string example 
+{
+    "schema": "2.0",
+    "body": {
+        "elements": [
+            {
+                "tag": "collapsible_panel",
+                "expanded": false,
+                "header": {
+                    "title": {
+                        "tag": "plain_text",
+                        "content": "本次调用了 4 个工具"
+                    }
+                },
+                "elements": [
+                    {
+                        "tag": "markdown",
+                        "content": "## 调用的工具列表\\n\\n- search_tool\\n- calculator\\n- weather_api\\n- database_query"
+                    }
+                ]
+            }
+        ]
+    }
+}
+*/
+
+esp_err_t feishu_send_message(mimi_msg_t *msg)
+{
+    if (!msg) return ESP_ERR_INVALID_ARG;
+
     if (s_app_id[0] == '\0' || s_app_secret[0] == '\0') {
         ESP_LOGW(TAG, "Cannot send: no credentials configured");
         return ESP_ERR_INVALID_STATE;
     }
 
-    /* Determine receive_id_type based on ID prefix */
+    /* Determine receive_id_type */
     const char *id_type = "chat_id";
-    if (strncmp(chat_id, "ou_", 3) == 0) {
+    if (strncmp(msg->chat_id, "ou_", 3) == 0) {
         id_type = "open_id";
     }
 
     char url[256];
-    snprintf(url, sizeof(url), "%s?receive_id_type=%s", FEISHU_SEND_MSG_URL, id_type);
+    snprintf(url, sizeof(url), "%s?receive_id_type=%s",
+             FEISHU_SEND_MSG_URL, id_type);
 
-    size_t text_len = strlen(text);
-    size_t offset = 0;
     int all_ok = 1;
 
-    while (offset < text_len) {
-        size_t chunk = text_len - offset;
-        if (chunk > MIMI_FEISHU_MAX_MSG_LEN) {
-            chunk = MIMI_FEISHU_MAX_MSG_LEN;
-        }
+    /* =========================
+     * TEXT 类型（支持分片）
+     * ========================= */
+    if (strcmp(msg->type, "text") == 0) {
 
-        char *segment = malloc(chunk + 1);
-        if (!segment) return ESP_ERR_NO_MEM;
-        memcpy(segment, text + offset, chunk);
-        segment[chunk] = '\0';
+        if (!msg->payload.text) return ESP_ERR_INVALID_ARG;
 
-        /* Build interactive card content (schema 2.0, markdown) */
-        char *content_str = feishu_build_card_content(segment);
-        free(segment);
+        size_t text_len = strlen(msg->payload.text);
+        size_t offset = 0;
 
-        if (!content_str) { offset += chunk; all_ok = 0; continue; }
+        /* 👉 用静态 buffer，避免 malloc 碎片 */
+        static char segment[MIMI_FEISHU_MAX_MSG_LEN + 1];
 
-        /* Build message body */
-        cJSON *body = cJSON_CreateObject();
-        cJSON_AddStringToObject(body, "receive_id", chat_id);
-        cJSON_AddStringToObject(body, "msg_type", "interactive");
-        cJSON_AddStringToObject(body, "content", content_str);
-        free(content_str);
+        while (offset < text_len) {
 
-        char *json_str = cJSON_PrintUnformatted(body);
-        cJSON_Delete(body);
+            size_t chunk = text_len - offset;
+            if (chunk > MIMI_FEISHU_MAX_MSG_LEN) {
+                chunk = MIMI_FEISHU_MAX_MSG_LEN;
+            }
 
-        if (json_str) {
+            memcpy(segment, msg->payload.text + offset, chunk);
+            segment[chunk] = '\0';
+
+            /* build card */
+            char *content_str = feishu_build_card_content_text(segment);
+            if (!content_str) {
+                ESP_LOGE(TAG, "Failed to build text card");
+                all_ok = 0;
+                offset += chunk;
+                continue;
+            }
+
+            /* build request body */
+            cJSON *body = cJSON_CreateObject();
+            cJSON_AddStringToObject(body, "receive_id", msg->chat_id);
+            cJSON_AddStringToObject(body, "msg_type", "interactive");
+            cJSON_AddStringToObject(body, "content", content_str);
+
+            free(content_str);  // ✅ build函数必须malloc
+
+            char *json_str = cJSON_PrintUnformatted(body);
+            cJSON_Delete(body);
+
+            if (!json_str) {
+                ESP_LOGE(TAG, "JSON encode failed");
+                all_ok = 0;
+                offset += chunk;
+                continue;
+            }
+
             char *resp = feishu_api_call(url, "POST", json_str);
-            free(json_str);
+            cJSON_free(json_str);   // ✅ 推荐
 
             if (resp) {
                 cJSON *root = cJSON_Parse(resp);
                 if (root) {
                     cJSON *code = cJSON_GetObjectItem(root, "code");
                     if (code && code->valueint != 0) {
-                        cJSON *msg = cJSON_GetObjectItem(root, "msg");
+                        cJSON *msg_json = cJSON_GetObjectItem(root, "msg");
                         ESP_LOGW(TAG, "Send failed: code=%d, msg=%s",
-                                 code->valueint, msg ? msg->valuestring : "unknown");
+                                 code->valueint,
+                                 msg_json ? msg_json->valuestring : "unknown");
                         all_ok = 0;
                     } else {
-                        ESP_LOGI(TAG, "Sent to %s (%d bytes)", chat_id, (int)chunk);
+                        ESP_LOGI(TAG, "Sent text chunk (%d bytes)", (int)chunk);
                     }
                     cJSON_Delete(root);
                 }
                 free(resp);
             } else {
-                ESP_LOGE(TAG, "Failed to send message chunk");
+                ESP_LOGE(TAG, "HTTP send failed");
                 all_ok = 0;
             }
+
+            offset += chunk;
+        }
+    }
+
+    /* =========================
+     * COLLAPSIBLE 类型（一次发送）
+     * ========================= */
+    else if (strcmp(msg->type, "collapsible") == 0) {
+
+        if (!msg->payload.collapsible.title ||
+            !msg->payload.collapsible.body) {
+            return ESP_ERR_INVALID_ARG;
         }
 
-        offset += chunk;
+        char *content_str =
+            feishu_build_card_content_collapsible(
+                msg->payload.collapsible.title,
+                msg->payload.collapsible.body);
+
+        if (!content_str) {
+            ESP_LOGE(TAG, "Failed to build collapsible card");
+            return ESP_FAIL;
+        }
+
+        cJSON *body = cJSON_CreateObject();
+        cJSON_AddStringToObject(body, "receive_id", msg->chat_id);
+        cJSON_AddStringToObject(body, "msg_type", "interactive");
+        cJSON_AddStringToObject(body, "content", content_str);
+
+        free(content_str);
+
+        char *json_str = cJSON_PrintUnformatted(body);
+        cJSON_Delete(body);
+
+        if (!json_str) {
+            ESP_LOGE(TAG, "JSON encode failed");
+            return ESP_FAIL;
+        }
+
+        char *resp = feishu_api_call(url, "POST", json_str);
+        cJSON_free(json_str);
+
+        if (resp) {
+            cJSON *root = cJSON_Parse(resp);
+            if (root) {
+                cJSON *code = cJSON_GetObjectItem(root, "code");
+                if (code && code->valueint != 0) {
+                    cJSON *msg_json = cJSON_GetObjectItem(root, "msg");
+                    ESP_LOGW(TAG, "Send failed: code=%d, msg=%s",
+                             code->valueint,
+                             msg_json ? msg_json->valuestring : "unknown");
+                    cJSON_Delete(root);
+                    free(resp);
+                    return ESP_FAIL;
+                } else {
+                    ESP_LOGI(TAG, "Sent collapsible message");
+                }
+                cJSON_Delete(root);
+            }
+            free(resp);
+        } else {
+            ESP_LOGE(TAG, "HTTP send failed");
+            return ESP_FAIL;
+        }
+    }
+
+    else {
+        ESP_LOGE(TAG, "Unsupported message type: %s", msg->type);
+        return ESP_ERR_NOT_SUPPORTED;
     }
 
     return all_ok ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t feishu_reply_message(const char *message_id, const char *text)
+esp_err_t feishu_reply_message(mimi_msg_t *msg)
 {
     if (s_app_id[0] == '\0' || s_app_secret[0] == '\0') {
         return ESP_ERR_INVALID_STATE;
     }
 
     char url[256];
-    snprintf(url, sizeof(url), FEISHU_REPLY_MSG_URL, message_id);
+    snprintf(url, sizeof(url), FEISHU_REPLY_MSG_URL, msg->chat_id);
 
     /* Build interactive card content (schema 2.0, markdown) */
-    char *content_str = feishu_build_card_content(text);
+    char *content_str = NULL;
+    if (strcmp(msg->type, "text") == 0) {
+       content_str = feishu_build_card_content_text(msg->payload.text);
+    }
+    else {
+        /* For non-text types, just put the raw content string (e.g. image URL) */
+        content_str = feishu_build_card_content_collapsible(msg->payload.collapsible.title, msg->payload.collapsible.body);
+    }
     if (!content_str) return ESP_ERR_NO_MEM;
 
     cJSON *body = cJSON_CreateObject();

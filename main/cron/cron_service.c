@@ -258,13 +258,13 @@ static void cron_process_due_jobs(void)
         memset(&msg, 0, sizeof(msg));
         strncpy(msg.channel, job->channel, sizeof(msg.channel) - 1);
         strncpy(msg.chat_id, job->chat_id, sizeof(msg.chat_id) - 1);
-        msg.content = strdup(job->message);
+        msg.payload.text = strdup(job->message);
 
-        if (msg.content) {
+        if (msg.payload.text) {
             esp_err_t err = message_bus_push_inbound(&msg);
             if (err != ESP_OK) {
                 ESP_LOGW(TAG, "Failed to push cron message: %s", esp_err_to_name(err));
-                free(msg.content);
+                free(msg.payload.text);
             }
         }
 

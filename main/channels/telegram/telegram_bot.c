@@ -360,11 +360,11 @@ static void process_updates(const char *json_str)
         mimi_msg_t msg = {0};
         strncpy(msg.channel, MIMI_CHAN_TELEGRAM, sizeof(msg.channel) - 1);
         strncpy(msg.chat_id, chat_id_str, sizeof(msg.chat_id) - 1);
-        msg.content = strdup(text->valuestring);
-        if (msg.content) {
+        msg.payload.text = strdup(text->valuestring);
+        if (msg.payload.text) {
             if (message_bus_push_inbound(&msg) != ESP_OK) {
                 ESP_LOGW(TAG, "Inbound queue full, drop telegram message");
-                free(msg.content);
+                free(msg.payload.text);
             }
         }
     }
