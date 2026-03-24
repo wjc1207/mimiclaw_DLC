@@ -1,21 +1,26 @@
 # swarmclaw: Pocket AI Assistant on a $5 Chip
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/swarmclaw_dark.png">
+    <img src="assets/swarmclaw.png" alt="swarmclaw" width="500" />
+  </picture>
+</p>
 
 <p align="center">
-  <img src="assets/swarmclaw.png" alt="swarmclaw" width="500" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
 **A branch of existing project [mimiclaw](https://github.com/memovai/mimiclaw)**
 
 **The world's first AI assistant(OpenClaw) on a $5 chip. No Linux. No Node.js. Just pure C**
 
-Swarmclaw turns a tiny ESP32-S3 board into a personal AI assistant. Plug it into USB power, connect to WiFi, and talk to it through Telegram — it handles any task you throw at it and evolves over time with local memory — all on a chip the size of a thumb.
+Swarmclaw turns a tiny ESP32-S3 board into a personal AI assistant. Plug it into USB power, connect to WiFi, and talk to it through your favorite messaging app — it handles any task you throw at it and evolves over time with local memory — all on a chip the size of a thumb.
 
 ## Meet Swarmclaw
 
 - **Tiny** — No Linux, no Node.js, no bloat — just pure C
-- **Handy** — Message it from Telegram, it handles the rest
+- **Handy** — Message it from Telegram or Feishu, it handles the rest
 - **Loyal** — Learns from memory, remembers across reboots
 - **Energetic** — USB power, 0.5 W, runs 24/7
 - **Lovable** — One ESP32-S3 board, $5, nothing else
@@ -47,6 +52,13 @@ ls /dev/ttyACM*          # Linux
 idf.py -p PORT flash monitor
 ```
 
+## Supported Channels
+
+| Channel | Description | Features |
+|---------|-------------|----------|
+| **Telegram** | Native Telegram bot interface | Full command support, file attachments, inline queries |
+| **Feishu** | Feishu/Lark robot integration | Enterprise messaging, group chat support |
+
 ## Tools
 
 | Tool | Usage | 
@@ -66,6 +78,7 @@ idf.py -p PORT flash monitor
 | OpenAI (GPT) | `openai` | api.openai.com | |
 | OpenRouter | `openrouter` | openrouter.ai | Free tier available |
 | NVIDIA NIM | `nvidia` | integrate.api.nvidia.com | Free tier available |
+| Alibaba Cloud Qwen | `qwen` | dashscope.aliyun.com | |
 
 ## Supported Web Search Providers
 
