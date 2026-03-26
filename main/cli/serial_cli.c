@@ -52,7 +52,6 @@ static int cmd_wifi_status(int argc, char **argv)
 {
     printf("WiFi connected: %s\n", wifi_manager_is_connected() ? "yes" : "no");
     printf("IPv4: %s\n", wifi_manager_get_ip());
-    printf("IPv6: %s\n", wifi_manager_get_ipv6());
     return 0;
 }
 

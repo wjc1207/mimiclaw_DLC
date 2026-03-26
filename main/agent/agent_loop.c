@@ -415,6 +415,7 @@ static void agent_loop_task(void *arg)
             mimi_msg_t out = {0};
             strncpy(out.channel, msg.channel, sizeof(out.channel) - 1);
             strncpy(out.chat_id, msg.chat_id, sizeof(out.chat_id) - 1);
+            strncpy(out.type, "text", sizeof(out.type) - 1);
             out.payload.text = strdup("Sorry, I encountered an error.");
             if (out.payload.text) {
                 if (message_bus_push_outbound(&out) != ESP_OK) {

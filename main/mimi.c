@@ -149,8 +149,8 @@ void app_main(void)
         ESP_LOGI(TAG, "Waiting for WiFi connection...");
         if (wifi_manager_wait_connected(30000) == ESP_OK) {
             wifi_ok = true;
-            ESP_LOGI(TAG, "WiFi connected: IPv4=%s IPv6=%s",
-                     wifi_manager_get_ip(), wifi_manager_get_ipv6());
+            ESP_LOGI(TAG, "WiFi connected: IPv4=%s",
+                     wifi_manager_get_ip());
         } else {
             ESP_LOGW(TAG, "WiFi connection timeout");
         }

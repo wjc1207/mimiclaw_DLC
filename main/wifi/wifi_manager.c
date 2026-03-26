@@ -20,7 +20,6 @@ static EventGroupHandle_t s_wifi_event_group;
 static esp_netif_t *s_wifi_netif = NULL;
 static int s_retry_count = 0;
 static char s_ip_str[16] = "0.0.0.0";
-static char s_ipv6_str[40] = "::";
 static bool s_connected = false;
 static bool s_reconnect_enabled = true;
 static bool s_sntp_initialized = false;
@@ -93,7 +92,6 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         s_connected = false;
         strlcpy(s_ip_str, "0.0.0.0", sizeof(s_ip_str));
-        strlcpy(s_ipv6_str, "::", sizeof(s_ipv6_str));
         wifi_event_sta_disconnected_t *disc = (wifi_event_sta_disconnected_t *)event_data;
         if (disc) {
             ESP_LOGW(TAG, "Disconnected (reason=%d:%s)", disc->reason, wifi_reason_to_str(disc->reason));
@@ -120,20 +118,9 @@ static void event_handler(void *arg, esp_event_base_t event_base,
         s_retry_count = 0;
         s_connected = true;
 
-        if (s_wifi_netif) {
-            esp_err_t err = esp_netif_create_ip6_linklocal(s_wifi_netif);
-            if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-                ESP_LOGW(TAG, "Failed to create IPv6 link-local address: %s", esp_err_to_name(err));
-            }
-        }
-
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
 
         sntp_time_sync_init();
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_GOT_IP6) {
-        ip_event_got_ip6_t *event = (ip_event_got_ip6_t *)event_data;
-        snprintf(s_ipv6_str, sizeof(s_ipv6_str), IPV6STR, IPV62STR(event->ip6_info.ip));
-        ESP_LOGI(TAG, "Connected! IPv6: %s", s_ipv6_str);
     }
 }
 
@@ -151,8 +138,6 @@ esp_err_t wifi_manager_init(void)
         WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(
         IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(
-        IP_EVENT, IP_EVENT_GOT_IP6, &event_handler, NULL, NULL));
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
 
@@ -221,11 +206,6 @@ bool wifi_manager_is_connected(void)
 const char *wifi_manager_get_ip(void)
 {
     return s_ip_str;
-}
-
-const char *wifi_manager_get_ipv6(void)
-{
-    return s_ipv6_str;
 }
 
 esp_err_t wifi_manager_set_credentials(const char *ssid, const char *password)

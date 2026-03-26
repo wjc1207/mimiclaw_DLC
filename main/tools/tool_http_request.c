@@ -376,7 +376,8 @@ esp_err_t tool_http_request_execute(const char *input_json, char *output, size_t
 
     if (err != ESP_OK) {
         free(hb.data);
-        snprintf(output, output_size, "Error: HTTP request failed (err=%d)", (int)err);
+        ESP_LOGE(TAG, "HTTP request failed, status=%d", status);
+        snprintf(output, output_size, "Error: HTTP request failed, status=%d", status);
         return err;
     }
 
