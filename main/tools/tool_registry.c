@@ -187,11 +187,14 @@ esp_err_t tool_registry_init(void)
                        "Set 'action' to the operation you want, then pass its required fields. "
                        "For full action/parameter details, read /spiffs/skills/gpio.md.",
         .input_schema_json =
-            "{\"type\":\"object\","
-            "\"properties\":{"
-            "\"action\":{\"type\":\"string\",\"description\":\"Operation name. See /spiffs/skills/gpio.md for all actions and parameters.\"}"
-            "},"
-            "\"required\":[\"action\"]}",
+        "{\"type\":\"object\","
+        "\"properties\":{"
+        "\"action\":{\"type\":\"string\",\"description\":\"Operation name.\"},"
+        "\"r\":{\"type\":\"integer\",\"minimum\":0,\"maximum\":255},"
+        "\"g\":{\"type\":\"integer\",\"minimum\":0,\"maximum\":255},"
+        "\"b\":{\"type\":\"integer\",\"minimum\":0,\"maximum\":255}"
+        "},"
+        "\"required\":[\"action\"]}",
         .execute = tool_gpio_execute,
     };
 
