@@ -17,3 +17,10 @@ esp_err_t tool_script_write_execute(const char *input_json,
  */
 esp_err_t tool_script_run_execute(const char *input_json,
                                   char *output, size_t output_size);
+
+/**
+ * Write a temporary Lua script, run it, and remove it afterward.
+ * Input JSON: {"content": "...", "timeout_ms": 5000}
+ */
+esp_err_t tool_script_write_and_run_execute(const char *input_json,
+                                       char *output, size_t output_size);

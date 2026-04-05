@@ -21,7 +21,6 @@ idf_component_register(
         "tools/tool_web_search.c"
         "tools/tool_get_time.c"
         "tools/tool_files.c"
-        "tools/tool_gpio.c"
         "tools/tool_http_request.c"
         "tools/tool_script.c"
         "lua/lua_runner.c"

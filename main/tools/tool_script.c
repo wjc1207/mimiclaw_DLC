@@ -11,6 +11,7 @@
 static const char *TAG = "tool_script";
 
 #define SCRIPTS_PREFIX "/spiffs/scripts/"
+#define TEMP_SCRIPT_PATH "/spiffs/scripts/tmp.lua"
 
 /* ── Helpers ──────────────────────────────────────────────── */
 
@@ -147,5 +148,69 @@ esp_err_t tool_script_run_execute(const char *input_json,
 
     free(lua_output);
     ESP_LOGI(TAG, "script_run: %s → %s", path_buf, (err == ESP_OK) ? "ok" : "fail");
+    return err;
+}
+
+/* ── script_write_and_run ─────────────────────────────────── */
+
+esp_err_t tool_script_write_and_run_execute(const char *input_json,
+                                            char *output, size_t output_size)
+{
+    cJSON *root = cJSON_Parse(input_json);
+    if (!root) {
+        snprintf(output, output_size, "{\"ok\":false,\"error\":\"invalid JSON input\"}");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    const char *content = cJSON_GetStringValue(cJSON_GetObjectItem(root, "content"));
+    int timeout_ms = 5000;
+    cJSON *jtimeout = cJSON_GetObjectItem(root, "timeout_ms");
+    if (cJSON_IsNumber(jtimeout)) {
+        timeout_ms = jtimeout->valueint;
+    }
+
+    if (!content) {
+        snprintf(output, output_size, "{\"ok\":false,\"error\":\"missing 'content' field\"}");
+        cJSON_Delete(root);
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    size_t len = strlen(content);
+    FILE *f = fopen(TEMP_SCRIPT_PATH, "w");
+    if (!f) {
+        snprintf(output, output_size,
+                 "{\"ok\":false,\"error\":\"cannot open temp file for writing: %s\"}",
+                 TEMP_SCRIPT_PATH);
+        cJSON_Delete(root);
+        return ESP_FAIL;
+    }
+
+    size_t written = fwrite(content, 1, len, f);
+    fclose(f);
+    if (written != len) {
+        remove(TEMP_SCRIPT_PATH);
+        snprintf(output, output_size,
+                 "{\"ok\":false,\"error\":\"wrote %d of %d bytes\"}",
+                 (int)written, (int)len);
+        cJSON_Delete(root);
+        return ESP_FAIL;
+    }
+
+    cJSON_Delete(root);
+
+    char run_input[128];
+    snprintf(run_input, sizeof(run_input),
+             "{\"path\":\"%s\",\"timeout_ms\":%d}",
+             TEMP_SCRIPT_PATH, timeout_ms);
+
+    esp_err_t err = tool_script_run_execute(run_input, output, output_size);
+
+    int delete_rc = remove(TEMP_SCRIPT_PATH);
+    if (delete_rc != 0) {
+        ESP_LOGW(TAG, "script_write_and_run: failed to delete %s", TEMP_SCRIPT_PATH);
+    }
+
+    ESP_LOGI(TAG, "script_write_and_run: %s → %s", TEMP_SCRIPT_PATH,
+             (err == ESP_OK) ? "ok" : "fail");
     return err;
 }

@@ -3,7 +3,6 @@
 #include "tools/tool_get_time.h"
 #include "tools/tool_files.h"
 #include "tools/tool_cron.h"
-#include "tools/tool_gpio.h"
 #include "tools/tool_http_request.h"
 #include "tools/tool_script.h"
 
@@ -178,29 +177,7 @@ esp_err_t tool_registry_init(void)
     };
     register_tool(&cr);
 
-    /* Register gpio — unified hardware I/O tool */
-    tool_gpio_init();
-
-    mimi_tool_t gpio = {
-        .name = "gpio",
-        .description = "Unified hardware I/O tool for GPIO, I2C, SPI, RGB LEDs, PWM, UART, and 1-Wire. "
-                       "Set 'action' to the operation you want, then pass its required fields. "
-                       "For full action/parameter details, read /spiffs/skills/gpio.md.",
-        .input_schema_json =
-        "{\"type\":\"object\","
-        "\"properties\":{"
-        "\"action\":{\"type\":\"string\",\"description\":\"Operation name.\"},"
-        "\"r\":{\"type\":\"integer\",\"minimum\":0,\"maximum\":255},"
-        "\"g\":{\"type\":\"integer\",\"minimum\":0,\"maximum\":255},"
-        "\"b\":{\"type\":\"integer\",\"minimum\":0,\"maximum\":255}"
-        "},"
-        "\"required\":[\"action\"]}",
-        .execute = tool_gpio_execute,
-    };
-
-    register_tool(&gpio);
-
- /* Register http_request */
+    /* Register http_request */
     mimi_tool_t hr = {
         .name = "http_request",
         .description = "Make HTTP requests to external APIs and websites. Supports GET, POST, PUT, DELETE, PATCH, HEAD methods. Use for API calls, fetching data from URLs, etc. Set enable_image_analysis to true to capture an image from a URL and return it as base64 for vision analysis.",
@@ -247,6 +224,21 @@ esp_err_t tool_registry_init(void)
         .execute = tool_script_run_execute,
     };
     register_tool(&sr);
+
+    /* Register script_write_and_run */
+    mimi_tool_t swr = {
+        .name = "script_write_and_run",
+        .description = "Write a temporary Lua script to SPIFFS, run it, and delete it afterward. Useful for command-style one-off scripts.",
+        .input_schema_json =
+            "{\"type\":\"object\"," 
+            "\"properties\":{" 
+            "\"content\":{\"type\":\"string\",\"description\":\"Full Lua source code\"},"
+            "\"timeout_ms\":{\"type\":\"integer\",\"description\":\"Max execution time in ms (default 5000)\"}"
+            "},"
+            "\"required\":[\"content\"]}",
+        .execute = tool_script_write_and_run_execute,
+    };
+    register_tool(&swr);
 
     // After registering all tools, build the JSON array string
     build_tools_json();
