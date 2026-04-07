@@ -143,6 +143,12 @@
 #define MIMI_WS_PORT                 18789
 #define MIMI_WS_MAX_CLIENTS          4
 
+/* A2A Server */
+#define MIMI_A2A_PORT                18788
+#define MIMI_A2A_STACK               (10 * 1024)
+#define MIMI_A2A_MAX_TASKS           32
+#define MIMI_A2A_SYNC_TIMEOUT_MS     10000
+
 /* Serial CLI */
 #define MIMI_CLI_STACK               (4 * 1024)
 #define MIMI_CLI_PRIO                3

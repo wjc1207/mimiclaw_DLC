@@ -100,6 +100,17 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
+static esp_err_t feishu_http_perform_locked(esp_http_client_handle_t client)
+{
+    if (!http_proxy_http_lock(10000)) {
+        ESP_LOGE(TAG, "HTTP lock timeout");
+        return ESP_ERR_TIMEOUT;
+    }
+    esp_err_t err = esp_http_client_perform(client);
+    http_proxy_http_unlock();
+    return err;
+}
+
 /* ── Feishu WS frame (protobuf) ────────────────────────────── */
 typedef struct {
     char key[32];
@@ -337,7 +348,7 @@ static esp_err_t feishu_get_tenant_token(void)
     esp_http_client_set_header(client, "Content-Type", "application/json");
     esp_http_client_set_post_field(client, json_str, strlen(json_str));
 
-    esp_err_t err = esp_http_client_perform(client);
+    esp_err_t err = feishu_http_perform_locked(client);
     esp_http_client_cleanup(client);
     free(json_str);
 
@@ -405,7 +416,7 @@ static char *feishu_api_call(const char *url, const char *method, const char *po
         }
     }
 
-    esp_err_t err = esp_http_client_perform(client);
+    esp_err_t err = feishu_http_perform_locked(client);
     esp_http_client_cleanup(client);
 
     if (err != ESP_OK) {
@@ -477,7 +488,7 @@ static esp_err_t feishu_pull_ws_config(void)
     esp_http_client_set_header(client, "Content-Type", "application/json");
     esp_http_client_set_header(client, "locale", "zh");
     esp_http_client_set_post_field(client, json_str, strlen(json_str));
-    esp_err_t err = esp_http_client_perform(client);
+    esp_err_t err = feishu_http_perform_locked(client);
     int status = esp_http_client_get_status_code(client);
     esp_http_client_cleanup(client);
     free(json_str);

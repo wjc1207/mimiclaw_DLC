@@ -8,6 +8,7 @@
 #define MIMI_CHAN_TELEGRAM   "telegram"
 #define MIMI_CHAN_FEISHU     "feishu"
 #define MIMI_CHAN_WEBSOCKET  "websocket"
+#define MIMI_CHAN_A2A        "a2a"
 #define MIMI_CHAN_CLI        "cli"
 #define MIMI_CHAN_SYSTEM     "system"
 

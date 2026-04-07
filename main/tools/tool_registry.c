@@ -4,6 +4,8 @@
 #include "tools/tool_files.h"
 #include "tools/tool_cron.h"
 #include "tools/tool_http_request.h"
+#include "tools/tool_a2a_client.h"
+#include "tools/tool_device_control.h"
 #include "tools/tool_script.h"
 
 #include <string.h>
@@ -194,6 +196,44 @@ esp_err_t tool_registry_init(void)
         .execute = tool_http_request_execute,
     };
     register_tool(&hr);
+
+    /* Register a2a_client */
+    mimi_tool_t ac = {
+        .name = "a2a_client",
+        .description = "Call an A2A server with auto-filled device client_id. Supports actions: send/get/cancel/agent_card. Optional server/server_url/base_url overrides the default local device.",
+        .input_schema_json =
+            "{\"type\":\"object\"," 
+            "\"properties\":{"
+            "\"action\":{\"type\":\"string\",\"description\":\"send | get | cancel | agent_card\"},"
+            "\"message\":{\"type\":\"string\",\"description\":\"Message text, required for action=send\"},"
+            "\"task_id\":{\"type\":\"string\",\"description\":\"Task ID, required for action=get/cancel\"},"
+            "\"server\":{\"type\":\"string\",\"description\":\"Optional server host or base URL. Examples: 192.168.3.40, 192.168.3.40:18788, http://192.168.3.40:18788\"},"
+            "\"timeout_ms\":{\"type\":\"integer\",\"description\":\"Optional HTTP timeout in ms\"}"
+            "},"
+            "\"required\":[\"action\"]}",
+        .execute = tool_a2a_client_execute,
+    };
+    register_tool(&ac);
+
+    /* Register device_control */
+    mimi_tool_t dc = {
+        .name = "device_control",
+        .description = "Control onboard WS2812 RGB LED on GPIO48. Supports actions: set/off/status.",
+        .input_schema_json =
+            "{\"type\":\"object\"," 
+            "\"properties\":{"
+            "\"action\":{\"type\":\"string\",\"description\":\"set | off | status\"},"
+            "\"r\":{\"type\":\"integer\",\"description\":\"Red 0..255 (for action=set)\"},"
+            "\"g\":{\"type\":\"integer\",\"description\":\"Green 0..255 (for action=set)\"},"
+            "\"b\":{\"type\":\"integer\",\"description\":\"Blue 0..255 (for action=set)\"},"
+            "\"hex\":{\"type\":\"string\",\"description\":\"Hex color #RRGGBB (for action=set)\"},"
+            "\"brightness\":{\"type\":\"integer\",\"description\":\"Brightness 0..255 (optional, action=set)\"},"
+            "\"pixels\":{\"type\":\"integer\",\"description\":\"Number of LEDs to drive (optional, default 1)\"}"
+            "},"
+            "\"required\":[\"action\"]}",
+        .execute = tool_device_control_execute,
+    };
+    register_tool(&dc);
 
     /* Register script_write */
     mimi_tool_t sw = {

@@ -15,6 +15,15 @@ esp_err_t http_proxy_init(void);
 bool http_proxy_is_enabled(void);
 
 /**
+ * Acquire global HTTP/TLS lock to avoid concurrent TLS handshakes/writes.
+ * timeout_ms < 0 means wait forever.
+ */
+bool http_proxy_http_lock(int timeout_ms);
+
+/** Release global HTTP/TLS lock. */
+void http_proxy_http_unlock(void);
+
+/**
  * Save proxy host and port to NVS.
  */
 esp_err_t http_proxy_set(const char *host, uint16_t port);
