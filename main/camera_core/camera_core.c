@@ -6,26 +6,27 @@
 #include "freertos/semphr.h"
 
 #include "camera_config.h"
+#include "feature_config.h"
 
 static const char *TAG = "camera";
 
 static camera_config_t s_camera_config = {
-    .pin_pwdn = CAM_PIN_PWDN,
-    .pin_reset = CAM_PIN_RESET,
-    .pin_xclk = CAM_PIN_XCLK,
-    .pin_sccb_sda = CAM_PIN_SIOD,
-    .pin_sccb_scl = CAM_PIN_SIOC,
-    .pin_d7 = CAM_PIN_D7,
-    .pin_d6 = CAM_PIN_D6,
-    .pin_d5 = CAM_PIN_D5,
-    .pin_d4 = CAM_PIN_D4,
-    .pin_d3 = CAM_PIN_D3,
-    .pin_d2 = CAM_PIN_D2,
-    .pin_d1 = CAM_PIN_D1,
-    .pin_d0 = CAM_PIN_D0,
-    .pin_vsync = CAM_PIN_VSYNC,
-    .pin_href = CAM_PIN_HREF,
-    .pin_pclk = CAM_PIN_PCLK,
+    .pin_pwdn = -1,  // Will be initialized later from NVS
+    .pin_reset = -1,  // Will be initialized later from NVS
+    .pin_xclk = -1,  // Will be initialized later from NVS
+    .pin_sccb_sda = -1,  // Will be initialized later from NVS
+    .pin_sccb_scl = -1,  // Will be initialized later from NVS
+    .pin_d7 = -1,  // Will be initialized later from NVS
+    .pin_d6 = -1,  // Will be initialized later from NVS
+    .pin_d5 = -1,  // Will be initialized later from NVS
+    .pin_d4 = -1,  // Will be initialized later from NVS
+    .pin_d3 = -1,  // Will be initialized later from NVS
+    .pin_d2 = -1,  // Will be initialized later from NVS
+    .pin_d1 = -1,  // Will be initialized later from NVS
+    .pin_d0 = -1,  // Will be initialized later from NVS
+    .pin_vsync = -1,  // Will be initialized later from NVS
+    .pin_href = -1,  // Will be initialized later from NVS
+    .pin_pclk = -1,  // Will be initialized later from NVS
     .xclk_freq_hz = CAM_XCLK_FREQ_HZ,
     .ledc_timer = LEDC_TIMER_0,
     .ledc_channel = LEDC_CHANNEL_0,
@@ -98,11 +99,34 @@ static void apply_sensor_tuning(sensor_t *s)
              "Sensor tuning applied: sharpness=%d contrast=%d quality=%d auto_exposure=1 auto_gain=1",
              CAMERA_TUNE_SHARPNESS,
              CAMERA_TUNE_CONTRAST,
-             CAMERA_STREAM_JPEG_QUALITY);
+             mimi_camera_jpeg_quality());
 }
 
 esp_err_t camera_core_init(void)
 {
+    // Initialize camera pins from NVS or use default values
+    s_camera_config.pin_pwdn = mimi_cam_pin_pwdn();
+    s_camera_config.pin_reset = mimi_cam_pin_reset();
+    s_camera_config.pin_xclk = mimi_cam_pin_xclk();
+    s_camera_config.pin_sccb_sda = mimi_cam_pin_siod();
+    s_camera_config.pin_sccb_scl = mimi_cam_pin_sioc();
+    s_camera_config.pin_d7 = mimi_cam_pin_d7();
+    s_camera_config.pin_d6 = mimi_cam_pin_d6();
+    s_camera_config.pin_d5 = mimi_cam_pin_d5();
+    s_camera_config.pin_d4 = mimi_cam_pin_d4();
+    s_camera_config.pin_d3 = mimi_cam_pin_d3();
+    s_camera_config.pin_d2 = mimi_cam_pin_d2();
+    s_camera_config.pin_d1 = mimi_cam_pin_d1();
+    s_camera_config.pin_d0 = mimi_cam_pin_d0();
+    s_camera_config.pin_vsync = mimi_cam_pin_vsync();
+    s_camera_config.pin_href = mimi_cam_pin_href();
+    s_camera_config.pin_pclk = mimi_cam_pin_pclk();
+    s_camera_config.xclk_freq_hz = mimi_cam_xclk_freq();
+
+    // Initialize frame size and quality from NVS
+    s_camera_config.frame_size = mimi_camera_frame_size();
+    s_camera_config.jpeg_quality = mimi_camera_jpeg_quality();
+
     if (s_camera_config.pin_xclk < 0) {
         ESP_LOGW(TAG, "XCLK pin disabled. Make sure camera module has onboard oscillator.");
     } else {
@@ -119,7 +143,7 @@ esp_err_t camera_core_init(void)
     ESP_LOGI(TAG,
              "Camera init frame_size=%d frame_size=%d",
              CAMERA_INIT_FRAME_SIZE,
-             CAMERA_STREAM_FRAME_SIZE);
+             mimi_camera_frame_size());
 
     esp_err_t err = esp_camera_init(&s_camera_config);
     if (err != ESP_OK) {
@@ -130,8 +154,8 @@ esp_err_t camera_core_init(void)
     sensor_t *s = esp_camera_sensor_get();
     if (s) {
         ESP_LOGI(TAG, "Sensor detected PID=0x%04X", s->id.PID);
-        s->set_framesize(s, CAMERA_STREAM_FRAME_SIZE);
-        s->set_quality(s, CAMERA_STREAM_JPEG_QUALITY);
+        s->set_framesize(s, mimi_camera_frame_size());
+        s->set_quality(s, mimi_camera_jpeg_quality());
         apply_sensor_tuning(s);
     }
 

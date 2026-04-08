@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS
         "mimi.c"
+        "feature_config/feature_config.c"
         "bus/message_bus.c"
         "wifi/wifi_manager.c"
         "channels/telegram/telegram_bot.c"
@@ -36,6 +37,7 @@ idf_component_register(
         "onboard/wifi_onboard.c"
     INCLUDE_DIRS
         "."
+        "feature_config"
     REQUIRES
         nvs_flash esp_wifi esp_netif esp_http_client esp_http_server
         esp_https_ota esp_event json spiffs console vfs app_update esp-tls
