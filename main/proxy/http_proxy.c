@@ -12,6 +12,8 @@
 #include "nvs.h"
 #include "esp_tls.h"
 #include "esp_crt_bundle.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 
 static const char *TAG = "proxy";
 
@@ -23,9 +25,17 @@ __attribute__((constructor)) static void proxy_log_level(void)
 
 static char     s_proxy_host[64] = {0};
 static uint16_t s_proxy_port     = 0;
+static SemaphoreHandle_t s_http_lock = NULL;
 
 esp_err_t http_proxy_init(void)
 {
+    if (!s_http_lock) {
+        s_http_lock = xSemaphoreCreateMutex();
+        if (!s_http_lock) {
+            return ESP_ERR_NO_MEM;
+        }
+    }
+
     /* Start with build-time defaults */
     if (MIMI_SECRET_PROXY_HOST[0] != '\0' && MIMI_SECRET_PROXY_PORT[0] != '\0') {
         strncpy(s_proxy_host, MIMI_SECRET_PROXY_HOST, sizeof(s_proxy_host) - 1);
@@ -53,6 +63,25 @@ esp_err_t http_proxy_init(void)
         ESP_LOGI(TAG, "No proxy configured (direct connection)");
     }
     return ESP_OK;
+}
+
+bool http_proxy_http_lock(int timeout_ms)
+{
+    if (!s_http_lock) {
+        return false;
+    }
+
+    TickType_t wait_ticks = (timeout_ms < 0)
+                            ? portMAX_DELAY
+                            : pdMS_TO_TICKS(timeout_ms);
+    return xSemaphoreTake(s_http_lock, wait_ticks) == pdTRUE;
+}
+
+void http_proxy_http_unlock(void)
+{
+    if (s_http_lock) {
+        xSemaphoreGive(s_http_lock);
+    }
 }
 
 esp_err_t http_proxy_set(const char *host, uint16_t port)

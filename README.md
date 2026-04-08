@@ -65,10 +65,22 @@ idf.py -p PORT flash monitor
 |----------|-------|
 | **Cron** | run task at given unix timestamp or at given interval | 
 | **File** | add, remove, edit and list files | 
-| **GPIO Control** | Single `gpio` tool for all hardware I/O: GPIO, I²C, SPI, RGB/WS2812B, PWM, UART, 1-Wire | 
+| **A2A Client** | call A2A server with auto local `client_id`; supports `send/get/cancel/agent_card`, and optional remote `server` override |
+| **Device Control** | immediate WS2812 RGB control on GPIO48 (`set/off/status`) |
 | **HTTP Request** | execute `http` request to access API | 
 | **Script** | write and run `lua` script in real time | 
 | **Web Search** | Search anything on the Internet | 
+
+### A2A Client Notes
+
+- `action=agent_card` will try `/.well-known/agent-card.json` first.
+- If the first path is unavailable, it automatically falls back to `/well-known/agent.json`.
+- You can target another device with `server` (for example `192.168.3.40:18788` or `http://192.168.3.40:18788`).
+
+### Device Control Notes
+
+- `device_control` is for immediate LED state changes.
+- Complex timing effects (blink/rainbow/animations) should be implemented with `script_write`, `script_run`, or `script_write_and_run`.
  
 ## Supported LLM Providers
 

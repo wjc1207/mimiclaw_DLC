@@ -14,6 +14,7 @@
 #include "wifi/wifi_manager.h"
 #include "channels/telegram/telegram_bot.h"
 #include "channels/feishu/feishu_bot.h"
+#include "channels/a2a/a2a_server.h"
 #include "llm/llm_proxy.h"
 #include "agent/agent_loop.h"
 #include "memory/memory_store.h"
@@ -26,6 +27,9 @@
 #include "heartbeat/heartbeat.h"
 #include "skills/skill_loader.h"
 #include "onboard/wifi_onboard.h"
+
+#include "camera_core/camera_core.h"
+#include "ble/bthome_listener.h"
 
 static const char *TAG = "mimi";
 
@@ -74,22 +78,34 @@ static void outbound_dispatch_task(void *arg)
         ESP_LOGI(TAG, "Dispatching response to %s:%s", msg.channel, msg.chat_id);
 
         if (strcmp(msg.channel, MIMI_CHAN_TELEGRAM) == 0) {
+#if MIMI_FEATURE_TELEGRAM_BOT
             esp_err_t send_err = telegram_send_message(&msg);
             if (send_err != ESP_OK) {
                 ESP_LOGE(TAG, "Telegram send failed for %s: %s", msg.chat_id, esp_err_to_name(send_err));
             } else {
                 ESP_LOGI(TAG, "Telegram send success for %s (%d bytes)", msg.chat_id, (int)strlen(msg.payload.text));
             }
+#else
+            ESP_LOGW(TAG, "Telegram bot disabled, message not sent");
+#endif
         } else if (strcmp(msg.channel, MIMI_CHAN_FEISHU) == 0) {
-            esp_err_t send_err = ESP_FAIL;
-            send_err = feishu_send_message(&msg);
+#if MIMI_FEATURE_FEISHU_BOT
+            esp_err_t send_err = feishu_send_message(&msg);
             if (send_err != ESP_OK) {
                 ESP_LOGE(TAG, "Feishu send failed for %s: %s", msg.chat_id, esp_err_to_name(send_err));
-            } 
+            }
+#else
+            ESP_LOGW(TAG, "Feishu bot disabled, message not sent");
+#endif
         } else if (strcmp(msg.channel, MIMI_CHAN_WEBSOCKET) == 0) {
             esp_err_t ws_err = ws_server_send(msg.chat_id, msg.payload.text);
             if (ws_err != ESP_OK) {
                 ESP_LOGW(TAG, "WS send failed for %s: %s", msg.chat_id, esp_err_to_name(ws_err));
+            }
+        } else if (strcmp(msg.channel, MIMI_CHAN_A2A) == 0) {
+            esp_err_t a2a_err = a2a_server_handle_agent_reply(msg.chat_id, msg.payload.text);
+            if (a2a_err != ESP_OK) {
+                ESP_LOGW(TAG, "A2A reply mapping failed for %s: %s", msg.chat_id, esp_err_to_name(a2a_err));
             }
         } else if (strcmp(msg.channel, MIMI_CHAN_SYSTEM) == 0) {
             ESP_LOGI(TAG, "System message [%s]: %.128s", msg.chat_id, msg.payload.text);
@@ -122,6 +138,19 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     ESP_ERROR_CHECK(init_spiffs());
 
+#if MIMI_FEATURE_CAMERA_TOOL
+    if (ESP_OK != camera_core_init()) {
+        ESP_LOGW(TAG, "Camera init failed; camera tool will remain unavailable");
+    }
+#endif
+
+#if MIMI_FEATURE_BLE_TOOL
+    esp_err_t ble_ret = bthome_listener_start(MIMI_BLE_TARGET_ADDR);
+    if (ble_ret != ESP_OK) {
+        ESP_LOGW(TAG, "BTHome listener start failed: 0x%x", (unsigned int)ble_ret);
+    }
+#endif
+
     /* Initialize subsystems */
     ESP_ERROR_CHECK(message_bus_init());
     ESP_ERROR_CHECK(memory_store_init());
@@ -129,8 +158,12 @@ void app_main(void)
     ESP_ERROR_CHECK(session_mgr_init());
     ESP_ERROR_CHECK(wifi_manager_init());
     ESP_ERROR_CHECK(http_proxy_init());
+#if MIMI_FEATURE_TELEGRAM_BOT
     ESP_ERROR_CHECK(telegram_bot_init());
+#endif
+#if MIMI_FEATURE_FEISHU_BOT
     ESP_ERROR_CHECK(feishu_bot_init());
+#endif
     ESP_ERROR_CHECK(llm_proxy_init());
     ESP_ERROR_CHECK(tool_registry_init());
     ESP_ERROR_CHECK(cron_service_init());
@@ -178,8 +211,13 @@ void app_main(void)
 
         /* Start network-dependent services */
         ESP_ERROR_CHECK(agent_loop_start());
+#if MIMI_FEATURE_TELEGRAM_BOT
         ESP_ERROR_CHECK(telegram_bot_start());
+#endif
+#if MIMI_FEATURE_FEISHU_BOT
         ESP_ERROR_CHECK(feishu_bot_start());
+#endif
+        ESP_ERROR_CHECK(a2a_server_start());
         cron_service_start();
         heartbeat_start();
         ESP_ERROR_CHECK(ws_server_start());
