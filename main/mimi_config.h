@@ -186,6 +186,15 @@
 #define MIMI_NVS_LLM                 "llm_config"
 #define MIMI_NVS_PROXY               "proxy_config"
 #define MIMI_NVS_SEARCH              "search_config"
+#define MIMI_NVS_FEATURE             "feature_config"
+
+/* NVS Keys for Features */
+#define MIMI_NVS_KEY_RGB_CONTROL     "rgb_control"
+#define MIMI_NVS_KEY_CAMERA_TOOL     "camera_tool"
+#define MIMI_NVS_KEY_BLE_TOOL        "ble_tool"
+#define MIMI_NVS_KEY_BLE_TARGET_ADDR "ble_target_addr"
+#define MIMI_NVS_KEY_TELEGRAM_BOT    "telegram_bot"
+#define MIMI_NVS_KEY_FEISHU_BOT      "feishu_bot"
 
 /* NVS Keys */
 #define MIMI_NVS_KEY_SSID            "ssid"

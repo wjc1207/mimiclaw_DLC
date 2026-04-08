@@ -70,6 +70,24 @@ static void json_add_effective_config_u16(cJSON *root, const char *json_key,
     cJSON_AddStringToObject(root, json_key, value);
 }
 
+static void json_add_effective_config_bool(cJSON *root, const char *json_key,
+                                           const char *ns, const char *nvs_key,
+                                           bool build_val)
+{
+    bool value = build_val;
+
+    nvs_handle_t nvs;
+    if (nvs_open(ns, NVS_READONLY, &nvs) == ESP_OK) {
+        uint8_t bool_val = 0;
+        if (nvs_get_u8(nvs, nvs_key, &bool_val) == ESP_OK) {
+            value = bool_val ? true : false;
+        }
+        nvs_close(nvs);
+    }
+
+    cJSON_AddBoolToObject(root, json_key, value);
+}
+
 /* ── DNS hijack ─────────────────────────────────────────────────── */
 
 /* Minimal DNS response: always answer 192.168.4.1 */
@@ -229,6 +247,14 @@ static esp_err_t http_get_config(httpd_req_t *req)
     json_add_effective_config(root, "search_key", MIMI_NVS_SEARCH, MIMI_NVS_KEY_API_KEY, MIMI_SECRET_SEARCH_KEY);
     json_add_effective_config(root, "tavily_key", MIMI_NVS_SEARCH, MIMI_NVS_KEY_TAVILY_KEY, MIMI_SECRET_TAVILY_KEY);
 
+    /* Feature toggles */
+    json_add_effective_config_bool(root, "rgb_control", MIMI_NVS_FEATURE, MIMI_NVS_KEY_RGB_CONTROL, MIMI_FEATURE_RGB_CONTROL);
+    json_add_effective_config_bool(root, "camera_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_TOOL, MIMI_FEATURE_CAMERA_TOOL);
+    json_add_effective_config_bool(root, "ble_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TOOL, MIMI_FEATURE_BLE_TOOL);
+    json_add_effective_config(root, "ble_target_addr", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TARGET_ADDR, MIMI_BLE_TARGET_ADDR);
+    json_add_effective_config_bool(root, "telegram_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_TELEGRAM_BOT, MIMI_FEATURE_TELEGRAM_BOT);
+    json_add_effective_config_bool(root, "feishu_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_FEISHU_BOT, MIMI_FEATURE_FEISHU_BOT);
+
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     if (!json) {
@@ -303,6 +329,36 @@ static void nvs_sync_u16_field(cJSON *root, const char *json_key,
     }
 }
 
+static void nvs_sync_bool_field(cJSON *root, const char *json_key,
+                               const char *ns, const char *nvs_key)
+{
+    cJSON *item = cJSON_GetObjectItem(root, json_key);
+    if (!item) return;
+
+    nvs_handle_t nvs;
+    if (nvs_open(ns, NVS_READWRITE, &nvs) == ESP_OK) {
+        if (cJSON_IsBool(item)) {
+            ESP_ERROR_CHECK(nvs_set_u8(nvs, nvs_key, item->valueint ? 1 : 0));
+            ESP_LOGI(TAG, "Saved %s/%s: %s", ns, nvs_key, item->valueint ? "true" : "false");
+        } else if (cJSON_IsString(item)) {
+            if (item->valuestring[0] == '\0') {
+                esp_err_t err = nvs_erase_key(nvs, nvs_key);
+                if (err == ESP_OK) {
+                    ESP_LOGI(TAG, "Cleared %s/%s", ns, nvs_key);
+                } else if (err != ESP_ERR_NVS_NOT_FOUND) {
+                    ESP_LOGW(TAG, "Failed clearing %s/%s: %s", ns, nvs_key, esp_err_to_name(err));
+                }
+            } else {
+                bool value = (strcmp(item->valuestring, "true") == 0 || strcmp(item->valuestring, "1") == 0);
+                ESP_ERROR_CHECK(nvs_set_u8(nvs, nvs_key, value ? 1 : 0));
+                ESP_LOGI(TAG, "Saved %s/%s: %s", ns, nvs_key, value ? "true" : "false");
+            }
+        }
+        nvs_commit(nvs);
+        nvs_close(nvs);
+    }
+}
+
 static esp_err_t http_post_save(httpd_req_t *req)
 {
     int total_len = req->content_len;
@@ -359,6 +415,14 @@ static esp_err_t http_post_save(httpd_req_t *req)
     /* Search */
     nvs_sync_field(root, "search_key", MIMI_NVS_SEARCH, MIMI_NVS_KEY_API_KEY);
     nvs_sync_field(root, "tavily_key", MIMI_NVS_SEARCH, MIMI_NVS_KEY_TAVILY_KEY);
+
+    /* Feature toggles */
+    nvs_sync_bool_field(root, "rgb_control", MIMI_NVS_FEATURE, MIMI_NVS_KEY_RGB_CONTROL);
+    nvs_sync_bool_field(root, "camera_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_TOOL);
+    nvs_sync_bool_field(root, "ble_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TOOL);
+    nvs_sync_field(root, "ble_target_addr", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TARGET_ADDR);
+    nvs_sync_bool_field(root, "telegram_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_TELEGRAM_BOT);
+    nvs_sync_bool_field(root, "feishu_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_FEISHU_BOT);
 
     cJSON_Delete(root);
 
