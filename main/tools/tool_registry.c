@@ -5,16 +5,20 @@
 #include "tools/tool_cron.h"
 #include "tools/tool_http_request.h"
 #include "tools/tool_a2a_client.h"
-#include "tools/tool_device_control.h"
+#include "tools/tool_rgb_control.h"
+#include "tools/tool_camera_capture.h"
+#include "tools/tool_ble_listener.h"
 #include "tools/tool_script.h"
 
 #include <string.h>
 #include "esp_log.h"
 #include "cJSON.h"
 
+#include "mimi_config.h"
+
 static const char *TAG = "tools";
 
-#define MAX_TOOLS 16
+#define MAX_TOOLS 20
 
 static mimi_tool_t s_tools[MAX_TOOLS];
 static int s_tool_count = 0;
@@ -215,25 +219,55 @@ esp_err_t tool_registry_init(void)
     };
     register_tool(&ac);
 
-    /* Register device_control */
-    mimi_tool_t dc = {
-        .name = "device_control",
-        .description = "Control onboard WS2812 RGB LED on GPIO48. Supports actions: set/off/status.",
+#if MIMI_FEATURE_RGB_CONTROL
+    /* Register rgb_control */
+    mimi_tool_t rc = {
+        .name = "rgb_control",
+        .description = "Set the onboard WS2812 RGB LED color using hex or r/g/b plus optional brightness.",
         .input_schema_json =
             "{\"type\":\"object\"," 
             "\"properties\":{"
-            "\"action\":{\"type\":\"string\",\"description\":\"set | off | status\"},"
-            "\"r\":{\"type\":\"integer\",\"description\":\"Red 0..255 (for action=set)\"},"
-            "\"g\":{\"type\":\"integer\",\"description\":\"Green 0..255 (for action=set)\"},"
-            "\"b\":{\"type\":\"integer\",\"description\":\"Blue 0..255 (for action=set)\"},"
-            "\"hex\":{\"type\":\"string\",\"description\":\"Hex color #RRGGBB (for action=set)\"},"
-            "\"brightness\":{\"type\":\"integer\",\"description\":\"Brightness 0..255 (optional, action=set)\"},"
-            "\"pixels\":{\"type\":\"integer\",\"description\":\"Number of LEDs to drive (optional, default 1)\"}"
+            "\"r\":{\"type\":\"integer\",\"description\":\"Red 0..255\"},"
+            "\"g\":{\"type\":\"integer\",\"description\":\"Green 0..255\"},"
+            "\"b\":{\"type\":\"integer\",\"description\":\"Blue 0..255\"},"
+            "\"hex\":{\"type\":\"string\",\"description\":\"Hex color #RRGGBB\"},"
+            "\"brightness\":{\"type\":\"integer\",\"description\":\"Brightness 0..255 (optional)\"}"
             "},"
-            "\"required\":[\"action\"]}",
-        .execute = tool_device_control_execute,
+            "\"required\":[]}",
+        .execute = tool_rgb_control_execute,
     };
-    register_tool(&dc);
+    register_tool(&rc);
+#endif
+
+#if MIMI_FEATURE_CAMERA_TOOL
+    /* Register camera_capture */
+    mimi_tool_t cam = {
+        .name = "camera_capture",
+        .description = "Capture a fresh camera image and return it for visual analysis.",
+        .input_schema_json =
+            "{\"type\":\"object\"," 
+            "\"properties\":{"
+            "\"enable_image_analysis\":{\"type\":\"boolean\",\"description\":\"Whether to include image payload for LLM visual analysis. Default true.\"}"
+            "},"
+            "\"required\":[]}",
+        .execute = tool_camera_capture_execute,
+    };
+    register_tool(&cam);
+#endif
+
+#if MIMI_FEATURE_BLE_TOOL
+    /* Register ble_listener */
+    mimi_tool_t ble = {
+        .name = "ble_listener",
+        .description = "Get the latest BLE BTHome temperature, humidity, and battery reading from this device.",
+        .input_schema_json =
+            "{\"type\":\"object\"," 
+            "\"properties\":{},"
+            "\"required\":[]}",
+        .execute = tool_ble_listener_execute,
+    };
+    register_tool(&ble);
+#endif
 
     /* Register script_write */
     mimi_tool_t sw = {

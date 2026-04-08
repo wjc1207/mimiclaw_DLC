@@ -2,6 +2,31 @@
 
 /* MimiClaw Global Configuration */
 
+/* Optional feature toggles */
+#ifndef MIMI_FEATURE_RGB_CONTROL
+#define MIMI_FEATURE_RGB_CONTROL 1
+#endif
+
+#ifndef MIMI_FEATURE_CAMERA_TOOL
+#define MIMI_FEATURE_CAMERA_TOOL 1
+#endif
+
+#ifndef MIMI_FEATURE_BLE_TOOL
+#define MIMI_FEATURE_BLE_TOOL 1
+#endif
+
+#ifndef MIMI_BLE_TARGET_ADDR
+#define MIMI_BLE_TARGET_ADDR "a4:c1:38:a0:0d:98"
+#endif
+
+#ifndef MIMI_FEATURE_TELEGRAM_BOT
+#define MIMI_FEATURE_TELEGRAM_BOT 0
+#endif
+
+#ifndef MIMI_FEATURE_FEISHU_BOT
+#define MIMI_FEATURE_FEISHU_BOT 0
+#endif
+
 /* Build-time secrets (highest priority, override NVS) */
 #if __has_include("mimi_secrets.h")
 #include "mimi_secrets.h"
@@ -147,7 +172,7 @@
 #define MIMI_A2A_PORT                18788
 #define MIMI_A2A_STACK               (10 * 1024)
 #define MIMI_A2A_MAX_TASKS           32
-#define MIMI_A2A_SYNC_TIMEOUT_MS     10000
+#define MIMI_A2A_SYNC_TIMEOUT_MS     5000
 
 /* Serial CLI */
 #define MIMI_CLI_STACK               (4 * 1024)

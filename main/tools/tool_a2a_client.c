@@ -15,7 +15,7 @@
 
 static const char *TAG = "tool_a2a";
 
-#define A2A_CLIENT_TIMEOUT_MS 10000
+#define A2A_CLIENT_TIMEOUT_MS 15000
 #define A2A_CLIENT_BUF_SIZE   8192
 
 typedef struct {
@@ -163,14 +163,33 @@ static bool build_base_url(const char *server, char *url, size_t url_size)
         return true;
     }
 
-    if (strstr(server, "://")) {
-        snprintf(url, url_size, "%s", server);
+    const char *s = server;
+    while (*s == ' ' || *s == '\t' || *s == '\r' || *s == '\n') {
+        s++;
+    }
+    if (*s == '\0') {
+        snprintf(url, url_size, "http://localhost:%d", MIMI_A2A_PORT);
+        return true;
+    }
+
+    if (*s == ':') {
+        return false;
+    }
+
+    if (strstr(s, "://")) {
+        snprintf(url, url_size, "%s", s);
     } else {
-        if (strchr(server, ':')) {
-            snprintf(url, url_size, "http://%s", server);
+        if (strchr(s, ':')) {
+            snprintf(url, url_size, "http://%s", s);
         } else {
-            snprintf(url, url_size, "http://%s:%d", server, MIMI_A2A_PORT);
+            snprintf(url, url_size, "http://%s:%d", s, MIMI_A2A_PORT);
         }
+    }
+
+    const char *scheme = strstr(url, "://");
+    const char *host_start = scheme ? (scheme + 3) : url;
+    if (!host_start || host_start[0] == '\0' || host_start[0] == ':' || host_start[0] == '/') {
+        return false;
     }
 
     size_t len = strlen(url);
@@ -272,6 +291,11 @@ esp_err_t tool_a2a_client_execute(const char *input_json, char *output, size_t o
         server = get_input_string(input, "base_url");
     }
 
+    char server_copy[160] = {0};
+    if (server && server[0] != '\0') {
+        strlcpy(server_copy, server, sizeof(server_copy));
+    }
+
     if (strcmp(action, "send") == 0 && (!message || message[0] == '\0')) {
         cJSON_Delete(input);
         snprintf(output, output_size, "Error: 'message' is required for action=send");
@@ -308,10 +332,12 @@ esp_err_t tool_a2a_client_execute(const char *input_json, char *output, size_t o
     }
     cJSON_Delete(input);
 
+    const char *server_final = (server_copy[0] != '\0') ? server_copy : NULL;
+
     char base_url[160];
-    if (!build_base_url(server, base_url, sizeof(base_url))) {
+    if (!build_base_url(server_final, base_url, sizeof(base_url))) {
         free(body);
-        snprintf(output, output_size, "Error: Failed to build target server URL");
+        snprintf(output, output_size, "Error: Invalid target server '%s'", server_final ? server_final : "");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -370,7 +396,7 @@ esp_err_t tool_a2a_client_execute(const char *input_json, char *output, size_t o
     char url[224];
     snprintf(url, sizeof(url), "%s%s", base_url, endpoint);
 
-    ESP_LOGI(TAG, "A2A %s -> %s", rpc_method, url);
+    ESP_LOGI(TAG, "A2A %s -> %s (server=%s)", rpc_method, url, server_final ? server_final : "(default)");
     err = http_call(url, "POST", "application/json", body, timeout_ms, &hb, &status);
     free(body);
 
