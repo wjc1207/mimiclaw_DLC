@@ -52,6 +52,14 @@ ls /dev/ttyACM*          # Linux
 idf.py -p PORT flash monitor
 ```
 
+## Onboarding Web Portal
+
+After first boot (or when onboarding mode is enabled), Swarmclaw exposes a local setup portal:
+
+- AP SSID: `Swarmclaw-XXXX`
+- URL: `http://192.168.4.1`
+- Main actions: scan WiFi, configure LLM/provider keys, toggle features, and save + restart
+
 ## Supported Channels
 
 | Channel | Description | Features |
@@ -65,22 +73,13 @@ idf.py -p PORT flash monitor
 |----------|-------|
 | **Cron** | run task at given unix timestamp or at given interval | 
 | **File** | add, remove, edit and list files | 
-| **A2A Client** | call A2A server with auto local `client_id`; supports `send/get/cancel/agent_card`, and optional remote `server` override |
+| **A2A Client** | call A2A server; supports `send/get/cancel/agent_card` |
 | **Device Control** | immediate WS2812 RGB control on GPIO48 (`set/off/status`) |
 | **HTTP Request** | execute `http` request to access API | 
 | **Script** | write and run `lua` script in real time | 
 | **Web Search** | Search anything on the Internet | 
-
-### A2A Client Notes
-
-- `action=agent_card` will try `/.well-known/agent-card.json` first.
-- If the first path is unavailable, it automatically falls back to `/well-known/agent.json`.
-- You can target another device with `server` (for example `192.168.3.40:18788` or `http://192.168.3.40:18788`).
-
-### Device Control Notes
-
-- `device_control` is for immediate LED state changes.
-- Complex timing effects (blink/rainbow/animations) should be implemented with `script_write`, `script_run`, or `script_write_and_run`.
+| **camera capture** | Capture images from the onboard camera | 
+| **bthome listener** | Listen for BTHome device updates | 
  
 ## Supported LLM Providers
 
