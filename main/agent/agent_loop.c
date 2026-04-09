@@ -79,9 +79,7 @@ static void append_turn_context_prompt(char *prompt, size_t size, const mimi_msg
         prompt + off, size - off,
         "\n## Current Turn Context\n"
         "- source_channel: %s\n"
-        "- source_chat_id: %s\n"
-        "- If using cron_add for Telegram in this turn, set channel='telegram' and chat_id to source_chat_id.\n"
-        "- Never use chat_id 'cron' for Telegram messages.\n",
+        "- source_chat_id: %s\n",
         msg->channel[0] ? msg->channel : "(unknown)",
         msg->chat_id[0] ? msg->chat_id : "(empty)");
 
