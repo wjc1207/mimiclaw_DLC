@@ -29,9 +29,6 @@
 #include "skills/skill_loader.h"
 #include "onboard/wifi_onboard.h"
 
-#include "camera_core/camera_core.h"
-#include "ble/bthome_listener.h"
-
 static const char *TAG = "mimi";
 
 static esp_err_t init_nvs(void)
@@ -138,19 +135,6 @@ void app_main(void)
     ESP_ERROR_CHECK(init_nvs());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     ESP_ERROR_CHECK(init_spiffs());
-
-    if (mimi_feature_camera_tool_enabled()) {
-        if (ESP_OK != camera_core_init()) {
-            ESP_LOGW(TAG, "Camera init failed; camera tool will remain unavailable");
-        }
-    }
-
-    if (mimi_feature_ble_tool_enabled()) {
-        esp_err_t ble_ret = bthome_listener_start(mimi_ble_target_addr());
-        if (ble_ret != ESP_OK) {
-            ESP_LOGW(TAG, "BTHome listener start failed: 0x%x", (unsigned int)ble_ret);
-        }
-    }
 
     /* Initialize subsystems */
     ESP_ERROR_CHECK(message_bus_init());

@@ -2,7 +2,6 @@
 #include "onboard_html.h"
 #include "mimi_config.h"
 #include "wifi/wifi_manager.h"
-#include "camera_core/camera_config.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -87,64 +86,6 @@ static void json_add_effective_config_bool(cJSON *root, const char *json_key,
     }
 
     cJSON_AddBoolToObject(root, json_key, value);
-}
-
-static void json_add_effective_config_i32(cJSON *root, const char *json_key,
-                                           const char *ns, const char *nvs_key,
-                                           int32_t build_val)
-{
-    int32_t value = build_val;
-
-    nvs_handle_t nvs;
-    if (nvs_open(ns, NVS_READONLY, &nvs) == ESP_OK) {
-        int32_t temp = 0;
-        if (nvs_get_i32(nvs, nvs_key, &temp) == ESP_OK) {
-            value = temp;
-        }
-        nvs_close(nvs);
-    }
-
-    cJSON_AddNumberToObject(root, json_key, (double)value);
-}
-
-static void nvs_sync_i32_field(cJSON *root, const char *json_key,
-                               const char *ns, const char *nvs_key)
-{
-    cJSON *item = cJSON_GetObjectItem(root, json_key);
-    if (!item || (!cJSON_IsNumber(item) && !cJSON_IsString(item))) return;
-
-    nvs_handle_t nvs;
-    if (nvs_open(ns, NVS_READWRITE, &nvs) == ESP_OK) {
-        int32_t value = 0;
-        if (cJSON_IsNumber(item)) {
-            value = (int32_t)item->valuedouble;
-        } else if (cJSON_IsString(item)) {
-            if (item->valuestring[0] == '\0') {
-                esp_err_t err = nvs_erase_key(nvs, nvs_key);
-                if (err == ESP_OK) {
-                    ESP_LOGI(TAG, "Cleared %s/%s", ns, nvs_key);
-                } else if (err != ESP_ERR_NVS_NOT_FOUND) {
-                    ESP_LOGW(TAG, "Failed clearing %s/%s: %s", ns, nvs_key, esp_err_to_name(err));
-                }
-                nvs_commit(nvs);
-                nvs_close(nvs);
-                return;
-            } else {
-                char *end = NULL;
-                long temp = strtol(item->valuestring, &end, 10);
-                if (end == item->valuestring || *end != '\0') {
-                    ESP_LOGW(TAG, "Ignoring invalid %s value: %s", json_key, item->valuestring);
-                    nvs_close(nvs);
-                    return;
-                }
-                value = (int32_t)temp;
-            }
-        }
-        ESP_ERROR_CHECK(nvs_set_i32(nvs, nvs_key, value));
-        ESP_LOGI(TAG, "Saved %s/%s: %d", ns, nvs_key, (int)value);
-        nvs_commit(nvs);
-        nvs_close(nvs);
-    }
 }
 
 /* ── DNS hijack ─────────────────────────────────────────────────── */
@@ -307,35 +248,8 @@ static esp_err_t http_get_config(httpd_req_t *req)
     json_add_effective_config(root, "tavily_key", MIMI_NVS_SEARCH, MIMI_NVS_KEY_TAVILY_KEY, MIMI_SECRET_TAVILY_KEY);
 
     /* Feature toggles */
-    json_add_effective_config_bool(root, "rgb_control", MIMI_NVS_FEATURE, MIMI_NVS_KEY_RGB_CONTROL, MIMI_FEATURE_RGB_CONTROL);
-    json_add_effective_config_bool(root, "camera_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_TOOL, MIMI_FEATURE_CAMERA_TOOL);
-    json_add_effective_config_bool(root, "ble_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TOOL, MIMI_FEATURE_BLE_TOOL);
-    json_add_effective_config(root, "ble_target_addr", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TARGET_ADDR, MIMI_BLE_TARGET_ADDR);
     json_add_effective_config_bool(root, "telegram_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_TELEGRAM_BOT, MIMI_FEATURE_TELEGRAM_BOT);
     json_add_effective_config_bool(root, "feishu_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_FEISHU_BOT, MIMI_FEATURE_FEISHU_BOT);
-
-    /* Camera configuration */
-    json_add_effective_config_i32(root, "camera_frame_size", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_FRAME_SIZE, CAMERA_STREAM_FRAME_SIZE);
-    json_add_effective_config_i32(root, "camera_jpeg_quality", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_JPEG_QUALITY, CAMERA_STREAM_JPEG_QUALITY);
-
-    /* Camera pins configuration */
-    json_add_effective_config_i32(root, "cam_pin_pwdn", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_PWDN, CAM_PIN_PWDN);
-    json_add_effective_config_i32(root, "cam_pin_reset", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_RESET, CAM_PIN_RESET);
-    json_add_effective_config_i32(root, "cam_pin_xclk", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_XCLK, CAM_PIN_XCLK);
-    json_add_effective_config_i32(root, "cam_pin_siod", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_SIOD, CAM_PIN_SIOD);
-    json_add_effective_config_i32(root, "cam_pin_sioc", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_SIOC, CAM_PIN_SIOC);
-    json_add_effective_config_i32(root, "cam_pin_d7", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D7, CAM_PIN_D7);
-    json_add_effective_config_i32(root, "cam_pin_d6", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D6, CAM_PIN_D6);
-    json_add_effective_config_i32(root, "cam_pin_d5", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D5, CAM_PIN_D5);
-    json_add_effective_config_i32(root, "cam_pin_d4", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D4, CAM_PIN_D4);
-    json_add_effective_config_i32(root, "cam_pin_d3", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D3, CAM_PIN_D3);
-    json_add_effective_config_i32(root, "cam_pin_d2", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D2, CAM_PIN_D2);
-    json_add_effective_config_i32(root, "cam_pin_d1", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D1, CAM_PIN_D1);
-    json_add_effective_config_i32(root, "cam_pin_d0", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D0, CAM_PIN_D0);
-    json_add_effective_config_i32(root, "cam_pin_vsync", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_VSYNC, CAM_PIN_VSYNC);
-    json_add_effective_config_i32(root, "cam_pin_href", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_HREF, CAM_PIN_HREF);
-    json_add_effective_config_i32(root, "cam_pin_pclk", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_PCLK, CAM_PIN_PCLK);
-    json_add_effective_config_i32(root, "cam_xclk_freq", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_XCLK_FREQ, CAM_XCLK_FREQ_HZ);
 
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
@@ -516,35 +430,8 @@ static esp_err_t http_post_save(httpd_req_t *req)
     nvs_sync_field(root, "tavily_key", MIMI_NVS_SEARCH, MIMI_NVS_KEY_TAVILY_KEY);
 
     /* Feature toggles */
-    nvs_sync_bool_field(root, "rgb_control", MIMI_NVS_FEATURE, MIMI_NVS_KEY_RGB_CONTROL);
-    nvs_sync_bool_field(root, "camera_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_TOOL);
-    nvs_sync_bool_field(root, "ble_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TOOL);
-    nvs_sync_field(root, "ble_target_addr", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TARGET_ADDR);
     nvs_sync_bool_field(root, "telegram_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_TELEGRAM_BOT);
     nvs_sync_bool_field(root, "feishu_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_FEISHU_BOT);
-
-    /* Camera configuration */
-    nvs_sync_i32_field(root, "camera_frame_size", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_FRAME_SIZE);
-    nvs_sync_i32_field(root, "camera_jpeg_quality", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_JPEG_QUALITY);
-
-    /* Camera pins configuration */
-    nvs_sync_i32_field(root, "cam_pin_pwdn", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_PWDN);
-    nvs_sync_i32_field(root, "cam_pin_reset", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_RESET);
-    nvs_sync_i32_field(root, "cam_pin_xclk", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_XCLK);
-    nvs_sync_i32_field(root, "cam_pin_siod", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_SIOD);
-    nvs_sync_i32_field(root, "cam_pin_sioc", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_SIOC);
-    nvs_sync_i32_field(root, "cam_pin_d7", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D7);
-    nvs_sync_i32_field(root, "cam_pin_d6", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D6);
-    nvs_sync_i32_field(root, "cam_pin_d5", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D5);
-    nvs_sync_i32_field(root, "cam_pin_d4", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D4);
-    nvs_sync_i32_field(root, "cam_pin_d3", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D3);
-    nvs_sync_i32_field(root, "cam_pin_d2", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D2);
-    nvs_sync_i32_field(root, "cam_pin_d1", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D1);
-    nvs_sync_i32_field(root, "cam_pin_d0", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D0);
-    nvs_sync_i32_field(root, "cam_pin_vsync", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_VSYNC);
-    nvs_sync_i32_field(root, "cam_pin_href", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_HREF);
-    nvs_sync_i32_field(root, "cam_pin_pclk", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_PCLK);
-    nvs_sync_i32_field(root, "cam_xclk_freq", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_XCLK_FREQ);
 
     cJSON_Delete(root);
 

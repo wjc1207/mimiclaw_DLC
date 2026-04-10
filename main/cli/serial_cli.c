@@ -592,10 +592,7 @@ static int cmd_config_show(int argc, char **argv)
 
     /* Features */
     printf("\n=== Features ===\n");
-    print_config_bool("RGB Control",   MIMI_NVS_FEATURE, MIMI_NVS_KEY_RGB_CONTROL,     MIMI_FEATURE_RGB_CONTROL);
-    print_config_bool("Camera Tool",   MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_TOOL,     MIMI_FEATURE_CAMERA_TOOL);
-    print_config_bool("BLE Tool",      MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TOOL,        MIMI_FEATURE_BLE_TOOL);
-    print_config("BLE Target Addr", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TARGET_ADDR, MIMI_BLE_TARGET_ADDR,       false);
+    printf("  %-14s: %-5s  [%s]\n", "RGB Control", "true", "fixed");
     print_config_bool("Telegram Bot",  MIMI_NVS_FEATURE, MIMI_NVS_KEY_TELEGRAM_BOT,    MIMI_FEATURE_TELEGRAM_BOT);
     print_config_bool("Feishu Bot",    MIMI_NVS_FEATURE, MIMI_NVS_KEY_FEISHU_BOT,      MIMI_FEATURE_FEISHU_BOT);
     printf("=============================\n");
@@ -689,18 +686,12 @@ static int cmd_set_feature(int argc, char **argv)
 
     esp_err_t err = ESP_OK;
 
-    if (strcmp(feature, "rgb_control") == 0) {
-        err = mimi_set_feature_rgb_control(value);
-    } else if (strcmp(feature, "camera_tool") == 0) {
-        err = mimi_set_feature_camera_tool(value);
-    } else if (strcmp(feature, "ble_tool") == 0) {
-        err = mimi_set_feature_ble_tool(value);
-    } else if (strcmp(feature, "telegram_bot") == 0) {
+    if (strcmp(feature, "telegram_bot") == 0) {
         err = mimi_set_feature_telegram_bot(value);
     } else if (strcmp(feature, "feishu_bot") == 0) {
         err = mimi_set_feature_feishu_bot(value);
     } else {
-        printf("Unknown feature: %s. Use: rgb_control, camera_tool, ble_tool, telegram_bot, feishu_bot\n", feature);
+        printf("Unknown feature: %s. Use: telegram_bot, feishu_bot\n", feature);
         return 1;
     }
 
@@ -708,32 +699,6 @@ static int cmd_set_feature(int argc, char **argv)
         printf("Feature %s set to %s. Restart to apply.\n", feature, value ? "true" : "false");
     } else {
         printf("Failed to set feature %s: %s\n", feature, esp_err_to_name(err));
-    }
-
-    return (err == ESP_OK) ? 0 : 1;
-}
-
-/* --- set_ble_target_addr command --- */
-static struct {
-    struct arg_str *addr;
-    struct arg_end *end;
-} ble_addr_args;
-
-static int cmd_set_ble_target_addr(int argc, char **argv)
-{
-    int nerrors = arg_parse(argc, argv, (void **)&ble_addr_args);
-    if (nerrors != 0) {
-        arg_print_errors(stderr, ble_addr_args.end, argv[0]);
-        return 1;
-    }
-
-    const char *addr = ble_addr_args.addr->sval[0];
-    esp_err_t err = mimi_set_ble_target_addr(addr);
-
-    if (err == ESP_OK) {
-        printf("BLE target address set to %s. Restart to apply.\n", addr);
-    } else {
-        printf("Failed to set BLE target address: %s\n", esp_err_to_name(err));
     }
 
     return (err == ESP_OK) ? 0 : 1;
@@ -1039,7 +1004,7 @@ esp_err_t serial_cli_init(void)
     esp_console_cmd_register(&tool_exec_cmd);
 
     /* set_feature */
-    set_feature_args.feature = arg_str1(NULL, NULL, "<feature>", "Feature name (rgb_control|camera_tool|ble_tool|telegram_bot|feishu_bot)");
+    set_feature_args.feature = arg_str1(NULL, NULL, "<feature>", "Feature name (telegram_bot|feishu_bot)");
     set_feature_args.value = arg_str1(NULL, NULL, "<value>", "Value (true|false|1|0)");
     set_feature_args.end = arg_end(2);
     esp_console_cmd_t set_feature_cmd = {
@@ -1049,17 +1014,6 @@ esp_err_t serial_cli_init(void)
         .argtable = &set_feature_args,
     };
     esp_console_cmd_register(&set_feature_cmd);
-
-    /* set_ble_target_addr */
-    ble_addr_args.addr = arg_str1(NULL, NULL, "<address>", "BLE target address (e.g. a4:c1:38:a0:0d:98)");
-    ble_addr_args.end = arg_end(1);
-    esp_console_cmd_t set_ble_addr_cmd = {
-        .command = "set_ble_target_addr",
-        .help = "Set BLE target address: set_ble_target_addr <mac>",
-        .func = &cmd_set_ble_target_addr,
-        .argtable = &ble_addr_args,
-    };
-    esp_console_cmd_register(&set_ble_addr_cmd);
 
     /* restart */
     esp_console_cmd_t restart_cmd = {
