@@ -34,11 +34,11 @@
 #endif
 
 #ifndef MIMI_FEATURE_TELEGRAM_BOT
-#define MIMI_FEATURE_TELEGRAM_BOT 0
+#define MIMI_FEATURE_TELEGRAM_BOT 1
 #endif
 
 #ifndef MIMI_FEATURE_FEISHU_BOT
-#define MIMI_FEATURE_FEISHU_BOT 0
+#define MIMI_FEATURE_FEISHU_BOT 1
 #endif
 
 /* Build-time secrets (highest priority, override NVS) */

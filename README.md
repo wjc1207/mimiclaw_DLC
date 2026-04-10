@@ -119,7 +119,7 @@ You can configure secrets in one of two ways:
 - Connect to this hotspot and visit `http://192.168.4.1`
 - Configure all secrets and settings in the web interface
 
-## two-lconfig
+## two-layer configuration
 swarmclaw uses a two-layer configuration system, see [config.md](config.md) for details.
 
 ## Supported Channels

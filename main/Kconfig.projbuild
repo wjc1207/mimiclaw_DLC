@@ -8,13 +8,13 @@ menu "MimiClaw Optional Hardware Tools"
 
     config MIMI_TOOL_CAMERA_ENABLED
         bool "Enable camera capture tool"
-        default y
+        default n
         help
             Build camera_capture tool and camera core support.
 
     config MIMI_TOOL_BLE_ENABLED
         bool "Enable BLE listener tool"
-        default y
+        default n
         help
             Build ble_listener tool and BTHome listener support.
 
