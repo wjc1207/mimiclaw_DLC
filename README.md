@@ -25,6 +25,18 @@ Swarmclaw turns a tiny ESP32-S3 board into a personal AI assistant. Plug it into
 - **Energetic** — USB power, 0.5 W, runs 24/7
 - **Lovable** — One ESP32-S3 board, $5, nothing else
 
+## Hardware Requirements
+
+- ESP32 development board with PSRAM
+- WS2812 RGB LED (default GPIO 48)
+- camera module (optional, e.g. OV2640)
+- ble thermometer sensor (optional, e.g. LYWSD03MMC)
+
+## Version Selection
+
+- **main branch**: minimal version with core features, suitable for developers for secondary development and customization
+- **dev branch**: full version with camera and ble tools, suitable for end users for out-of-box experience
+
 ## Quick Start
 
 ```bash
@@ -37,7 +49,67 @@ cd mimiclaw
 idf.py set-target esp32s3
 ```
 
-Then build and flash:
+### 1. Obtain Required API Tokens and Keys
+
+<details>
+<summary>Obtain Feishu (Lark) Token</summary>
+
+1. Open [Feishu Console](https://open.feishu.cn/app)
+2. Click "Create Custom App"
+3. Fill in the bot name and upload an avatar (optional)
+4. In "Add Features", select "Bot" and click "Confirm"
+5. In "Permissions", add the following permissions:
+   - "im:message:send_as_bot"
+6. In "Events and Callbacks", add the following event subscriptions:
+   - "im.message.receive_v1"
+7. Save the token for later configuration
+</details>
+
+<details>
+<summary>Obtain Telegram Bot Token</summary>
+
+1. Search for `@BotFather` in Telegram and send `/start`
+2. Send `/newbot` to create a new bot, follow the instructions to set a name and username
+3. After completion, BotFather will send a message containing the token (format: `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`)
+4. Save this token for later configuration
+</details>
+
+#### Obtain LLM API Keys
+
+##### Supported LLM Providers and How to Obtain:
+
+<details>
+<summary>Anthropic (Claude)</summary>
+
+- Visit [Anthropic Console](https://console.anthropic.com/)
+- Create an account and log in
+- Navigate to the API Keys page
+- Click "Create Key" and save the generated key
+</details>
+
+<details>
+<summary>OpenAI (GPT)</summary>
+
+- Visit [OpenAI Platform](https://platform.openai.com/)
+- Create an account and log in
+- Navigate to the API Keys page
+- Click "Create new secret key" and save the generated key
+</details>
+
+### 2. Configure Secrets
+
+You can configure secrets in one of two ways:
+
+#### Method A: Using mimi_secrets.h File
+1. Create a `mimi_secrets.h` file in the `main` directory (if it doesn't exist)
+2. Add your secrets in the following format:
+
+#### Method B: Using Web Configuration Portal
+- After first boot, the device will create a WiFi hotspot named `Swarmclaw-XXXX`
+- Connect to this hotspot and visit `http://192.168.4.1`
+- Configure all secrets and settings in the web interface
+
+### 3. Build and Flash
 
 ```bash
 # Clean build (required after any mimi_secrets.h change)
@@ -51,14 +123,6 @@ ls /dev/ttyACM*          # Linux
 # USB adapter: likely /dev/cu.usbmodem11401 (macOS) or /dev/ttyACM0 (Linux)
 idf.py -p PORT flash monitor
 ```
-
-## Onboarding Web Portal
-
-After first boot (or when onboarding mode is enabled), Swarmclaw exposes a local setup portal:
-
-- AP SSID: `Swarmclaw-XXXX`
-- URL: `http://192.168.4.1`
-- Main actions: scan WiFi, configure LLM/provider keys, toggle features, and save + restart
 
 ## Supported Channels
 
@@ -74,7 +138,7 @@ After first boot (or when onboarding mode is enabled), Swarmclaw exposes a local
 | **Cron** | run task at given unix timestamp or at given interval | 
 | **File** | add, remove, edit and list files | 
 | **A2A Client** | call A2A server; supports `send/get/cancel/agent_card` |
-| **Device Control** | immediate WS2812 RGB control on GPIO48 (`set/off/status`) |
+| **Device Control** | immediate WS2812 RGB control on GPIO48 (`set/off/status`) (always enabled) |
 | **HTTP Request** | execute `http` request to access API | 
 | **Script** | write and run `lua` script in real time | 
 | **Web Search** | Search anything on the Internet | 
@@ -97,12 +161,6 @@ After first boot (or when onboarding mode is enabled), Swarmclaw exposes a local
 |----------|-------|-------------|-------|
 | tavily | `tavily` | api.tavily.com | Default |
 | brave | `brave` | api.search.brave.com | |
-
-## Hardware Requirements
-
-- ESP32 development board with PSRAM
-- WS2812 RGB LED (default GPIO 48)
-
 
 ## License
 
