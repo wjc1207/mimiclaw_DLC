@@ -1,0 +1,21 @@
+menu "MimiClaw Optional Hardware Tools"
+
+    config MIMI_TOOL_RGB_ENABLED
+        bool "Enable RGB control tool"
+        default y
+        help
+            Build rgb_control tool support.
+
+    config MIMI_TOOL_CAMERA_ENABLED
+        bool "Enable camera capture tool"
+        default y
+        help
+            Build camera_capture tool and camera core support.
+
+    config MIMI_TOOL_BLE_ENABLED
+        bool "Enable BLE listener tool"
+        default y
+        help
+            Build ble_listener tool and BTHome listener support.
+
+endmenu

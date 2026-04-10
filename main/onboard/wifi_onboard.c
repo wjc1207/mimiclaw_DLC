@@ -2,6 +2,8 @@
 #include "onboard_html.h"
 #include "mimi_config.h"
 #include "wifi/wifi_manager.h"
+#include "camera_core/camera_config.h"
+#include "sdkconfig.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -22,6 +24,24 @@
 static const char *TAG = "onboard";
 static httpd_handle_t s_server = NULL;
 static bool s_captive_mode = false;
+
+#if defined(CONFIG_MIMI_TOOL_RGB_ENABLED)
+#define MIMI_TOOL_RGB_AVAILABLE CONFIG_MIMI_TOOL_RGB_ENABLED
+#else
+#define MIMI_TOOL_RGB_AVAILABLE 0
+#endif
+
+#if defined(CONFIG_MIMI_TOOL_CAMERA_ENABLED)
+#define MIMI_TOOL_CAMERA_AVAILABLE CONFIG_MIMI_TOOL_CAMERA_ENABLED
+#else
+#define MIMI_TOOL_CAMERA_AVAILABLE 0
+#endif
+
+#if defined(CONFIG_MIMI_TOOL_BLE_ENABLED)
+#define MIMI_TOOL_BLE_AVAILABLE CONFIG_MIMI_TOOL_BLE_ENABLED
+#else
+#define MIMI_TOOL_BLE_AVAILABLE 0
+#endif
 
 static void json_add_effective_config(cJSON *root, const char *json_key,
                                       const char *ns, const char *nvs_key,
@@ -250,6 +270,34 @@ static esp_err_t http_get_config(httpd_req_t *req)
     /* Feature toggles */
     json_add_effective_config_bool(root, "telegram_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_TELEGRAM_BOT, MIMI_FEATURE_TELEGRAM_BOT);
     json_add_effective_config_bool(root, "feishu_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_FEISHU_BOT, MIMI_FEATURE_FEISHU_BOT);
+
+    /* Compile-time availability for onboard UI (layer 1) */
+    cJSON_AddBoolToObject(root, "rgb_control_available", MIMI_TOOL_RGB_AVAILABLE);
+    cJSON_AddBoolToObject(root, "camera_tool_available", MIMI_TOOL_CAMERA_AVAILABLE);
+    cJSON_AddBoolToObject(root, "ble_tool_available", MIMI_TOOL_BLE_AVAILABLE);
+
+    /* Camera configuration */
+    json_add_effective_config_i32(root, "camera_frame_size", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_FRAME_SIZE, CAMERA_STREAM_FRAME_SIZE);
+    json_add_effective_config_i32(root, "camera_jpeg_quality", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_JPEG_QUALITY, CAMERA_STREAM_JPEG_QUALITY);
+
+    /* Camera pins configuration */
+    json_add_effective_config_i32(root, "cam_pin_pwdn", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_PWDN, CAM_PIN_PWDN);
+    json_add_effective_config_i32(root, "cam_pin_reset", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_RESET, CAM_PIN_RESET);
+    json_add_effective_config_i32(root, "cam_pin_xclk", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_XCLK, CAM_PIN_XCLK);
+    json_add_effective_config_i32(root, "cam_pin_siod", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_SIOD, CAM_PIN_SIOD);
+    json_add_effective_config_i32(root, "cam_pin_sioc", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_SIOC, CAM_PIN_SIOC);
+    json_add_effective_config_i32(root, "cam_pin_d7", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D7, CAM_PIN_D7);
+    json_add_effective_config_i32(root, "cam_pin_d6", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D6, CAM_PIN_D6);
+    json_add_effective_config_i32(root, "cam_pin_d5", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D5, CAM_PIN_D5);
+    json_add_effective_config_i32(root, "cam_pin_d4", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D4, CAM_PIN_D4);
+    json_add_effective_config_i32(root, "cam_pin_d3", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D3, CAM_PIN_D3);
+    json_add_effective_config_i32(root, "cam_pin_d2", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D2, CAM_PIN_D2);
+    json_add_effective_config_i32(root, "cam_pin_d1", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D1, CAM_PIN_D1);
+    json_add_effective_config_i32(root, "cam_pin_d0", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D0, CAM_PIN_D0);
+    json_add_effective_config_i32(root, "cam_pin_vsync", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_VSYNC, CAM_PIN_VSYNC);
+    json_add_effective_config_i32(root, "cam_pin_href", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_HREF, CAM_PIN_HREF);
+    json_add_effective_config_i32(root, "cam_pin_pclk", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_PCLK, CAM_PIN_PCLK);
+    json_add_effective_config_i32(root, "cam_xclk_freq", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_XCLK_FREQ, CAM_XCLK_FREQ_HZ);
 
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);

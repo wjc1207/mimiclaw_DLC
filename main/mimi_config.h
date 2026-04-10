@@ -1,8 +1,38 @@
 #pragma once
 
+#include "sdkconfig.h"
+
 /* MimiClaw Global Configuration */
 
 /* Optional feature toggles */
+#ifndef MIMI_FEATURE_RGB_CONTROL
+#if CONFIG_MIMI_TOOL_RGB_ENABLED
+#define MIMI_FEATURE_RGB_CONTROL 1
+#else
+#define MIMI_FEATURE_RGB_CONTROL 0
+#endif
+#endif
+
+#ifndef MIMI_FEATURE_CAMERA_TOOL
+#if CONFIG_MIMI_TOOL_CAMERA_ENABLED
+#define MIMI_FEATURE_CAMERA_TOOL 1
+#else
+#define MIMI_FEATURE_CAMERA_TOOL 0
+#endif
+#endif
+
+#ifndef MIMI_FEATURE_BLE_TOOL
+#if CONFIG_MIMI_TOOL_BLE_ENABLED
+#define MIMI_FEATURE_BLE_TOOL 1
+#else
+#define MIMI_FEATURE_BLE_TOOL 0
+#endif
+#endif
+
+#ifndef MIMI_BLE_TARGET_ADDR
+#define MIMI_BLE_TARGET_ADDR "a4:c1:38:a0:0d:98"
+#endif
+
 #ifndef MIMI_FEATURE_TELEGRAM_BOT
 #define MIMI_FEATURE_TELEGRAM_BOT 0
 #endif
