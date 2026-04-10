@@ -1,6 +1,7 @@
 #include "feature_config.h"
 #include "mimi_config.h"
 #include "camera_core/camera_config.h"
+#include "sdkconfig.h"
 
 #include "esp_log.h"
 #include "nvs_flash.h"
@@ -74,16 +75,25 @@ static esp_err_t set_feature_str(const char *nvs_key, const char *value)
 
 bool mimi_feature_rgb_control_enabled(void)
 {
+#if !CONFIG_MIMI_TOOL_RGB_ENABLED
+    return false;
+#endif
     return get_feature_bool(MIMI_NVS_KEY_RGB_CONTROL, MIMI_FEATURE_RGB_CONTROL);
 }
 
 bool mimi_feature_camera_tool_enabled(void)
 {
+#if !CONFIG_MIMI_TOOL_CAMERA_ENABLED
+    return false;
+#endif
     return get_feature_bool(MIMI_NVS_KEY_CAMERA_TOOL, MIMI_FEATURE_CAMERA_TOOL);
 }
 
 bool mimi_feature_ble_tool_enabled(void)
 {
+#if !CONFIG_MIMI_TOOL_BLE_ENABLED
+    return false;
+#endif
     return get_feature_bool(MIMI_NVS_KEY_BLE_TOOL, MIMI_FEATURE_BLE_TOOL);
 }
 

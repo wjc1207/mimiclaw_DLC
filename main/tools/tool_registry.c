@@ -5,10 +5,20 @@
 #include "tools/tool_cron.h"
 #include "tools/tool_http_request.h"
 #include "tools/tool_a2a_client.h"
-#include "tools/tool_rgb_control.h"
-#include "tools/tool_camera_capture.h"
-#include "tools/tool_ble_listener.h"
 #include "tools/tool_script.h"
+#include "sdkconfig.h"
+
+#if CONFIG_MIMI_TOOL_RGB_ENABLED
+#include "tools/tool_rgb_control.h"
+#endif
+
+#if CONFIG_MIMI_TOOL_CAMERA_ENABLED
+#include "tools/tool_camera_capture.h"
+#endif
+
+#if CONFIG_MIMI_TOOL_BLE_ENABLED
+#include "tools/tool_ble_listener.h"
+#endif
 
 #include <string.h>
 #include "esp_log.h"
@@ -221,6 +231,7 @@ esp_err_t tool_registry_init(void)
     register_tool(&ac);
 
     if (mimi_feature_rgb_control_enabled()) {
+#if CONFIG_MIMI_TOOL_RGB_ENABLED
         /* Register rgb_control */
         mimi_tool_t rc = {
             .name = "rgb_control",
@@ -238,9 +249,11 @@ esp_err_t tool_registry_init(void)
             .execute = tool_rgb_control_execute,
         };
         register_tool(&rc);
+#endif
     }
 
     if (mimi_feature_camera_tool_enabled()) {
+#if CONFIG_MIMI_TOOL_CAMERA_ENABLED
         /* Register camera_capture */
         mimi_tool_t cam = {
             .name = "camera_capture",
@@ -254,9 +267,11 @@ esp_err_t tool_registry_init(void)
             .execute = tool_camera_capture_execute,
         };
         register_tool(&cam);
+#endif
     }
 
     if (mimi_feature_ble_tool_enabled()) {
+#if CONFIG_MIMI_TOOL_BLE_ENABLED
         /* Register ble_listener */
         mimi_tool_t ble = {
             .name = "ble_listener",
@@ -268,6 +283,7 @@ esp_err_t tool_registry_init(void)
             .execute = tool_ble_listener_execute,
         };
         register_tool(&ble);
+#endif
     }
 
     /* Register script_write */

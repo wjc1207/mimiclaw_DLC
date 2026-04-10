@@ -3,6 +3,7 @@
 #include "mimi_config.h"
 #include "wifi/wifi_manager.h"
 #include "camera_core/camera_config.h"
+#include "sdkconfig.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -23,6 +24,24 @@
 static const char *TAG = "onboard";
 static httpd_handle_t s_server = NULL;
 static bool s_captive_mode = false;
+
+#if defined(CONFIG_MIMI_TOOL_RGB_ENABLED)
+#define MIMI_TOOL_RGB_AVAILABLE CONFIG_MIMI_TOOL_RGB_ENABLED
+#else
+#define MIMI_TOOL_RGB_AVAILABLE 0
+#endif
+
+#if defined(CONFIG_MIMI_TOOL_CAMERA_ENABLED)
+#define MIMI_TOOL_CAMERA_AVAILABLE CONFIG_MIMI_TOOL_CAMERA_ENABLED
+#else
+#define MIMI_TOOL_CAMERA_AVAILABLE 0
+#endif
+
+#if defined(CONFIG_MIMI_TOOL_BLE_ENABLED)
+#define MIMI_TOOL_BLE_AVAILABLE CONFIG_MIMI_TOOL_BLE_ENABLED
+#else
+#define MIMI_TOOL_BLE_AVAILABLE 0
+#endif
 
 static void json_add_effective_config(cJSON *root, const char *json_key,
                                       const char *ns, const char *nvs_key,
@@ -313,6 +332,11 @@ static esp_err_t http_get_config(httpd_req_t *req)
     json_add_effective_config(root, "ble_target_addr", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TARGET_ADDR, MIMI_BLE_TARGET_ADDR);
     json_add_effective_config_bool(root, "telegram_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_TELEGRAM_BOT, MIMI_FEATURE_TELEGRAM_BOT);
     json_add_effective_config_bool(root, "feishu_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_FEISHU_BOT, MIMI_FEATURE_FEISHU_BOT);
+
+    /* Compile-time availability for onboard UI (layer 1) */
+    cJSON_AddBoolToObject(root, "rgb_control_available", MIMI_TOOL_RGB_AVAILABLE);
+    cJSON_AddBoolToObject(root, "camera_tool_available", MIMI_TOOL_CAMERA_AVAILABLE);
+    cJSON_AddBoolToObject(root, "ble_tool_available", MIMI_TOOL_BLE_AVAILABLE);
 
     /* Camera configuration */
     json_add_effective_config_i32(root, "camera_frame_size", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_FRAME_SIZE, CAMERA_STREAM_FRAME_SIZE);
