@@ -1,18 +1,32 @@
 #pragma once
 
+#include "sdkconfig.h"
+
 /* MimiClaw Global Configuration */
 
 /* Optional feature toggles */
 #ifndef MIMI_FEATURE_RGB_CONTROL
+#if CONFIG_MIMI_TOOL_RGB_ENABLED
 #define MIMI_FEATURE_RGB_CONTROL 1
+#else
+#define MIMI_FEATURE_RGB_CONTROL 0
+#endif
 #endif
 
 #ifndef MIMI_FEATURE_CAMERA_TOOL
+#if CONFIG_MIMI_TOOL_CAMERA_ENABLED
 #define MIMI_FEATURE_CAMERA_TOOL 1
+#else
+#define MIMI_FEATURE_CAMERA_TOOL 0
+#endif
 #endif
 
 #ifndef MIMI_FEATURE_BLE_TOOL
+#if CONFIG_MIMI_TOOL_BLE_ENABLED
 #define MIMI_FEATURE_BLE_TOOL 1
+#else
+#define MIMI_FEATURE_BLE_TOOL 0
+#endif
 #endif
 
 #ifndef MIMI_BLE_TARGET_ADDR
@@ -20,11 +34,11 @@
 #endif
 
 #ifndef MIMI_FEATURE_TELEGRAM_BOT
-#define MIMI_FEATURE_TELEGRAM_BOT 0
+#define MIMI_FEATURE_TELEGRAM_BOT 1
 #endif
 
 #ifndef MIMI_FEATURE_FEISHU_BOT
-#define MIMI_FEATURE_FEISHU_BOT 0
+#define MIMI_FEATURE_FEISHU_BOT 1
 #endif
 
 /* Build-time secrets (highest priority, override NVS) */

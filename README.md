@@ -32,24 +32,7 @@ Swarmclaw turns a tiny ESP32-S3 board into a personal AI assistant. Plug it into
 - camera module (optional, e.g. OV2640)
 - ble thermometer sensor (optional, e.g. LYWSD03MMC)
 
-## Version Selection
-
-- **main branch**: minimal version with core features, suitable for developers for secondary development and customization
-- **dev branch**: full version with camera and ble tools, suitable for end users for out-of-box experience
-
-## Quick Start
-
-```bash
-# You need ESP-IDF v5.5+ installed first:
-# https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32s3/get-started/
-
-git clone https://github.com/memovai/mimiclaw.git
-cd mimiclaw
-
-idf.py set-target esp32s3
-```
-
-### 1. Obtain Required API Tokens and Keys
+## Software Requirements
 
 <details>
 <summary>Obtain Feishu (Lark) Token</summary>
@@ -96,20 +79,19 @@ idf.py set-target esp32s3
 - Click "Create new secret key" and save the generated key
 </details>
 
-### 2. Configure Secrets
+## Quick Start
 
-You can configure secrets in one of two ways:
+```bash
+# You need ESP-IDF v5.5+ installed first:
+# https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32s3/get-started/
 
-#### Method A: Using mimi_secrets.h File
-1. Create a `mimi_secrets.h` file in the `main` directory (if it doesn't exist)
-2. Add your secrets in the following format:
+git clone https://github.com/wjc1207/swarmclaw.git
+cd swarmclaw
 
-#### Method B: Using Web Configuration Portal
-- After first boot, the device will create a WiFi hotspot named `Swarmclaw-XXXX`
-- Connect to this hotspot and visit `http://192.168.4.1`
-- Configure all secrets and settings in the web interface
+idf.py set-target esp32s3
+```
 
-### 3. Build and Flash
+### 1. Build and Flash
 
 ```bash
 # Clean build (required after any mimi_secrets.h change)
@@ -123,6 +105,22 @@ ls /dev/ttyACM*          # Linux
 # USB adapter: likely /dev/cu.usbmodem11401 (macOS) or /dev/ttyACM0 (Linux)
 idf.py -p PORT flash monitor
 ```
+
+### 2. Configure Secrets
+
+You can configure secrets in one of two ways:
+
+#### Method A: Using cli
+- use CLI commands to configure secrets and feature toggles
+- e.g. `wifi_set MySSID MyPassword` or `set_tg_token 123456:ABC...`
+
+#### Method B: Using Web Configuration Portal
+- After first boot, the device will create a WiFi hotspot named `Swarmclaw-XXXX`
+- Connect to this hotspot and visit `http://192.168.4.1`
+- Configure all secrets and settings in the web interface
+
+## two-layer configuration
+swarmclaw uses a two-layer configuration system, see [config.md](config.md) for details.
 
 ## Supported Channels
 
@@ -138,12 +136,12 @@ idf.py -p PORT flash monitor
 | **Cron** | run task at given unix timestamp or at given interval | 
 | **File** | add, remove, edit and list files | 
 | **A2A Client** | call A2A server; supports `send/get/cancel/agent_card` |
-| **Device Control** | immediate WS2812 RGB control on GPIO48 (`set/off/status`) (always enabled) |
+| **Device Control (RGB)** | immediate WS2812 RGB control on GPIO48 (`set/off/status`) (optional) |
 | **HTTP Request** | execute `http` request to access API | 
 | **Script** | write and run `lua` script in real time | 
 | **Web Search** | Search anything on the Internet | 
-| **camera capture** | Capture images from the onboard camera | 
-| **bthome listener** | Listen for BTHome device updates | 
+| **camera capture** | Capture images from the onboard camera (optional) | 
+| **bthome listener** | Listen for BTHome device updates (optional) | 
  
 ## Supported LLM Providers
 
