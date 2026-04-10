@@ -25,42 +25,6 @@ Swarmclaw turns a tiny ESP32-S3 board into a personal AI assistant. Plug it into
 - **Energetic** — USB power, 0.5 W, runs 24/7
 - **Lovable** — One ESP32-S3 board, $5, nothing else
 
-## Supported Channels
-
-| Channel | Description | Features |
-|---------|-------------|----------|
-| **Telegram** | Native Telegram bot interface | Full command support, file attachments, inline queries |
-| **Feishu** | Feishu/Lark robot integration | Enterprise messaging, group chat support |
-
-## Tools
-
-| Tool | Usage | 
-|----------|-------|
-| **Cron** | run task at given unix timestamp or at given interval | 
-| **File** | add, remove, edit and list files | 
-| **A2A Client** | call A2A server; supports `send/get/cancel/agent_card` |
-| **Device Control** | immediate WS2812 RGB control on GPIO48 (`set/off/status`) (always enabled) |
-| **HTTP Request** | execute `http` request to access API | 
-| **Script** | write and run `lua` script in real time | 
-| **Web Search** | Search anything on the Internet | 
- 
-## Supported LLM Providers
-
-| Provider | Value | API Endpoint | Notes |
-|----------|-------|-------------|-------|
-| Anthropic (Claude) | `anthropic` | api.anthropic.com | Default |
-| OpenAI (GPT) | `openai` | api.openai.com | |
-| OpenRouter | `openrouter` | openrouter.ai | Free tier available |
-| NVIDIA NIM | `nvidia` | integrate.api.nvidia.com | Free tier available |
-| Alibaba Cloud Qwen | `qwen` | dashscope.aliyun.com | |
-
-## Supported Web Search Providers
-
-| Provider | Value | API Endpoint | Notes |
-|----------|-------|-------------|-------|
-| tavily | `tavily` | api.tavily.com | Default |
-| brave | `brave` | api.search.brave.com | |
-
 ## Hardware Requirements
 
 - ESP32 development board with PSRAM
@@ -157,6 +121,42 @@ ls /dev/ttyACM*          # Linux
 # USB adapter: likely /dev/cu.usbmodem11401 (macOS) or /dev/ttyACM0 (Linux)
 idf.py -p PORT flash monitor
 ```
+
+## Supported Channels
+
+| Channel | Description | Features |
+|---------|-------------|----------|
+| **Telegram** | Native Telegram bot interface | Full command support, file attachments, inline queries |
+| **Feishu** | Feishu/Lark robot integration | Enterprise messaging, group chat support |
+
+## Tools
+
+| Tool | Usage | 
+|----------|-------|
+| **Cron** | run task at given unix timestamp or at given interval | 
+| **File** | add, remove, edit and list files | 
+| **A2A Client** | call A2A server; supports `send/get/cancel/agent_card` |
+| **Device Control** | immediate WS2812 RGB control on GPIO48 (`set/off/status`) (always enabled) |
+| **HTTP Request** | execute `http` request to access API | 
+| **Script** | write and run `lua` script in real time | 
+| **Web Search** | Search anything on the Internet | 
+ 
+## Supported LLM Providers
+
+| Provider | Value | API Endpoint | Notes |
+|----------|-------|-------------|-------|
+| Anthropic (Claude) | `anthropic` | api.anthropic.com | Default |
+| OpenAI (GPT) | `openai` | api.openai.com | |
+| OpenRouter | `openrouter` | openrouter.ai | Free tier available |
+| NVIDIA NIM | `nvidia` | integrate.api.nvidia.com | Free tier available |
+| Alibaba Cloud Qwen | `qwen` | dashscope.aliyun.com | |
+
+## Supported Web Search Providers
+
+| Provider | Value | API Endpoint | Notes |
+|----------|-------|-------------|-------|
+| tavily | `tavily` | api.tavily.com | Default |
+| brave | `brave` | api.search.brave.com | |
 
 ## License
 
