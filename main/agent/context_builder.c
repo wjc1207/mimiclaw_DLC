@@ -6,9 +6,16 @@
 #include <stdio.h>
 #include <string.h>
 #include "esp_log.h"
+#include "nvs.h"
 #include "cJSON.h"
 
 static const char *TAG = "context";
+
+static const char *DEFAULT_IDENTITY_PROMPT =
+    "# MimiClaw\n\n"
+    "You are MimiClaw, a personal AI assistant running on an ESP32-S3 device.\n"
+    "You communicate through Telegram and WebSocket.\n\n"
+    "Be helpful, accurate, and concise.\n\n";
 
 static size_t append_file(char *buf, size_t size, size_t offset, const char *path, const char *header)
 {
@@ -30,26 +37,24 @@ esp_err_t context_build_system_prompt(char *buf, size_t size)
 {
     size_t off = 0;
 
+    char identity_prompt[1024] = {0};
+    size_t id_len = sizeof(identity_prompt);
+    nvs_handle_t nvs;
+    if (nvs_open(MIMI_NVS_LLM, NVS_READONLY, &nvs) == ESP_OK) {
+        if (nvs_get_str(nvs, MIMI_NVS_KEY_SYSTEM_PROMPT, identity_prompt, &id_len) != ESP_OK) {
+            identity_prompt[0] = '\0';
+        }
+        nvs_close(nvs);
+    }
+
+    const char *identity = identity_prompt[0] ? identity_prompt : DEFAULT_IDENTITY_PROMPT;
+
+    off += snprintf(buf + off, size - off, "%s", identity);
+    if (identity_prompt[0] && off < size - 1) {
+        off += snprintf(buf + off, size - off, "\n\n");
+    }
+
     off += snprintf(buf + off, size - off,
-        "# MimiClaw\n\n"
-        "You are MimiClaw, a personal AI assistant running on an ESP32-S3 device.\n"
-        "You communicate through Telegram and WebSocket.\n\n"
-        "Be helpful, accurate, and concise.\n\n"
-        "## Available Tools\n"
-        "You have access to the following tools:\n"
-        "- web_search: Search the web for current information. "
-        "Use this when you need up-to-date facts, news, weather, or anything beyond your training data.\n"
-        "- get_current_time: Get the current date and time. "
-        "You do NOT have an internal clock — always use this tool when you need to know the time or date.\n"
-        "- read_file: Read a file from SPIFFS (path must start with /spiffs/).\n"
-        "- write_file: Write/overwrite a file on SPIFFS.\n"
-        "- edit_file: Find-and-replace edit a file on SPIFFS.\n"
-        "- list_dir: List files on SPIFFS, optionally filter by prefix.\n"
-        "- cron_add: Schedule a recurring or one-shot task. The message will trigger an agent turn when the job fires.\n"
-        "- cron_list: List all scheduled cron jobs.\n"
-        "- cron_remove: Remove a scheduled cron job by ID.\n\n"
-        "When using cron_add for Telegram delivery, always set channel='telegram' and a valid numeric chat_id.\n\n"
-        "Use tools when needed. Provide your final answer as text after using tools.\n\n"
         "## Memory\n"
         "You have persistent memory stored on local flash:\n"
         "- Long-term memory: /spiffs/memory/MEMORY.md\n"

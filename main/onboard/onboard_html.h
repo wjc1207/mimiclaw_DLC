@@ -17,7 +17,8 @@ static const char ONBOARD_HTML[] =
 ".card-body{padding:0 16px 16px}"
 "label{display:block;margin:10px 0 4px;font-size:.85em;color:#555}"
 "input,select{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:.95em;outline:none}"
-"input:focus,select:focus{border-color:#1a73e8}"
+"textarea{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:.95em;outline:none;resize:vertical;min-height:110px}"
+"input:focus,select:focus,textarea:focus{border-color:#1a73e8}"
 ".btn{display:block;width:100%;padding:12px;border:none;border-radius:8px;font-size:1em;font-weight:600;cursor:pointer;margin:8px 0}"
 ".btn-scan{background:#e8f0fe;color:#1a73e8}"
 ".btn-save{background:#1a73e8;color:#fff;margin-top:20px;font-size:1.1em}"
@@ -64,6 +65,8 @@ static const char ONBOARD_HTML[] =
 "<option value='nvidia'>NVIDIA NIM</option>"
 "<option value='qwen'>Qwen (DashScope)</option>"
 "</select>"
+"<label>Identity System Prompt</label>"
+"<textarea id='system_prompt' placeholder='Optional identity block shown at the top of system prompt'></textarea>"
 "</div></div>"
 
 /* Telegram section */
@@ -324,7 +327,7 @@ static const char ONBOARD_HTML[] =
 "}).catch(()=>{btn.textContent='Scan WiFi Networks';btn.disabled=false})}"
 
 "function save(){"
-"var fields=['ssid','password','api_key','model','provider','tg_token',"
+"var fields=['ssid','password','api_key','model','provider','system_prompt','tg_token',"
 "'feishu_app_id','feishu_app_secret','proxy_host','proxy_port','proxy_type','search_key','tavily_key','ble_target_addr'];"
 "var boolFields=['rgb_control','camera_tool','ble_tool','telegram_bot','feishu_bot'];"
 "var numberFields=['camera_frame_size','camera_jpeg_quality','cam_pin_pwdn','cam_pin_reset','cam_pin_xclk','cam_xclk_freq','cam_pin_siod','cam_pin_sioc','cam_pin_d7','cam_pin_d6','cam_pin_d5','cam_pin_d4','cam_pin_d3','cam_pin_d2','cam_pin_d1','cam_pin_d0','cam_pin_vsync','cam_pin_href','cam_pin_pclk'];"
