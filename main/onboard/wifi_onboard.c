@@ -166,6 +166,364 @@ static void nvs_sync_i32_field(cJSON *root, const char *json_key,
     }
 }
 
+static bool get_feature_bool(const char *nvs_key, bool default_val)
+{
+    bool value = default_val;
+
+    nvs_handle_t nvs;
+    if (nvs_open(MIMI_NVS_FEATURE, NVS_READONLY, &nvs) == ESP_OK) {
+        uint8_t bool_val = 0;
+        if (nvs_get_u8(nvs, nvs_key, &bool_val) == ESP_OK) {
+            value = bool_val ? true : false;
+        }
+        nvs_close(nvs);
+    }
+
+    return value;
+}
+
+static esp_err_t set_feature_bool(const char *nvs_key, bool value)
+{
+    nvs_handle_t nvs;
+    esp_err_t err = nvs_open(MIMI_NVS_FEATURE, NVS_READWRITE, &nvs);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    err = nvs_set_u8(nvs, nvs_key, value ? 1 : 0);
+    if (err == ESP_OK) {
+        err = nvs_commit(nvs);
+    }
+
+    nvs_close(nvs);
+    return err;
+}
+
+static const char *get_feature_str(const char *nvs_key, const char *default_val)
+{
+    static char value[18] = {0};
+    strlcpy(value, default_val, sizeof(value));
+
+    nvs_handle_t nvs;
+    if (nvs_open(MIMI_NVS_FEATURE, NVS_READONLY, &nvs) == ESP_OK) {
+        size_t len = sizeof(value);
+        if (nvs_get_str(nvs, nvs_key, value, &len) == ESP_OK) {
+        }
+        nvs_close(nvs);
+    }
+
+    return value;
+}
+
+static esp_err_t set_feature_str(const char *nvs_key, const char *value)
+{
+    nvs_handle_t nvs;
+    esp_err_t err = nvs_open(MIMI_NVS_FEATURE, NVS_READWRITE, &nvs);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    err = nvs_set_str(nvs, nvs_key, value);
+    if (err == ESP_OK) {
+        err = nvs_commit(nvs);
+    }
+
+    nvs_close(nvs);
+    return err;
+}
+
+static int get_feature_i32(const char *nvs_key, int default_val)
+{
+    int value = default_val;
+
+    nvs_handle_t nvs;
+    if (nvs_open(MIMI_NVS_FEATURE, NVS_READONLY, &nvs) == ESP_OK) {
+        int32_t tmp = 0;
+        if (nvs_get_i32(nvs, nvs_key, &tmp) == ESP_OK) {
+            value = (int)tmp;
+        }
+        nvs_close(nvs);
+    }
+
+    return value;
+}
+
+static esp_err_t set_feature_i32(const char *nvs_key, int value)
+{
+    nvs_handle_t nvs;
+    esp_err_t err = nvs_open(MIMI_NVS_FEATURE, NVS_READWRITE, &nvs);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    err = nvs_set_i32(nvs, nvs_key, (int32_t)value);
+    if (err == ESP_OK) {
+        err = nvs_commit(nvs);
+    }
+
+    nvs_close(nvs);
+    return err;
+}
+
+bool mimi_feature_rgb_control_enabled(void)
+{
+#if !CONFIG_MIMI_TOOL_RGB_ENABLED
+    return false;
+#endif
+    return get_feature_bool(MIMI_NVS_KEY_RGB_CONTROL, MIMI_FEATURE_RGB_CONTROL);
+}
+
+bool mimi_feature_camera_tool_enabled(void)
+{
+#if !CONFIG_MIMI_TOOL_CAMERA_ENABLED
+    return false;
+#endif
+    return get_feature_bool(MIMI_NVS_KEY_CAMERA_TOOL, MIMI_FEATURE_CAMERA_TOOL);
+}
+
+bool mimi_feature_ble_tool_enabled(void)
+{
+#if !CONFIG_MIMI_TOOL_BLE_ENABLED
+    return false;
+#endif
+    return get_feature_bool(MIMI_NVS_KEY_BLE_TOOL, MIMI_FEATURE_BLE_TOOL);
+}
+
+bool mimi_feature_telegram_bot_enabled(void)
+{
+    return get_feature_bool(MIMI_NVS_KEY_TELEGRAM_BOT, MIMI_FEATURE_TELEGRAM_BOT);
+}
+
+bool mimi_feature_feishu_bot_enabled(void)
+{
+    return get_feature_bool(MIMI_NVS_KEY_FEISHU_BOT, MIMI_FEATURE_FEISHU_BOT);
+}
+
+const char *mimi_ble_target_addr(void)
+{
+    return get_feature_str(MIMI_NVS_KEY_BLE_TARGET_ADDR, MIMI_BLE_TARGET_ADDR);
+}
+
+int mimi_camera_frame_size(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAMERA_FRAME_SIZE, CAMERA_STREAM_FRAME_SIZE);
+}
+
+int mimi_camera_jpeg_quality(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAMERA_JPEG_QUALITY, CAMERA_STREAM_JPEG_QUALITY);
+}
+
+int mimi_cam_pin_pwdn(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_PWDN, CAM_PIN_PWDN);
+}
+
+int mimi_cam_pin_reset(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_RESET, CAM_PIN_RESET);
+}
+
+int mimi_cam_pin_xclk(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_XCLK, CAM_PIN_XCLK);
+}
+
+int mimi_cam_pin_siod(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_SIOD, CAM_PIN_SIOD);
+}
+
+int mimi_cam_pin_sioc(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_SIOC, CAM_PIN_SIOC);
+}
+
+int mimi_cam_pin_d7(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_D7, CAM_PIN_D7);
+}
+
+int mimi_cam_pin_d6(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_D6, CAM_PIN_D6);
+}
+
+int mimi_cam_pin_d5(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_D5, CAM_PIN_D5);
+}
+
+int mimi_cam_pin_d4(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_D4, CAM_PIN_D4);
+}
+
+int mimi_cam_pin_d3(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_D3, CAM_PIN_D3);
+}
+
+int mimi_cam_pin_d2(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_D2, CAM_PIN_D2);
+}
+
+int mimi_cam_pin_d1(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_D1, CAM_PIN_D1);
+}
+
+int mimi_cam_pin_d0(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_D0, CAM_PIN_D0);
+}
+
+int mimi_cam_pin_vsync(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_VSYNC, CAM_PIN_VSYNC);
+}
+
+int mimi_cam_pin_href(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_HREF, CAM_PIN_HREF);
+}
+
+int mimi_cam_pin_pclk(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_PIN_PCLK, CAM_PIN_PCLK);
+}
+
+int mimi_cam_xclk_freq(void)
+{
+    return get_feature_i32(MIMI_NVS_KEY_CAM_XCLK_FREQ, CAM_XCLK_FREQ_HZ);
+}
+
+esp_err_t mimi_set_cam_xclk_freq(int freq)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_XCLK_FREQ, freq);
+}
+
+esp_err_t mimi_set_feature_rgb_control(bool enabled)
+{
+    return set_feature_bool(MIMI_NVS_KEY_RGB_CONTROL, enabled);
+}
+
+esp_err_t mimi_set_feature_camera_tool(bool enabled)
+{
+    return set_feature_bool(MIMI_NVS_KEY_CAMERA_TOOL, enabled);
+}
+
+esp_err_t mimi_set_feature_ble_tool(bool enabled)
+{
+    return set_feature_bool(MIMI_NVS_KEY_BLE_TOOL, enabled);
+}
+
+esp_err_t mimi_set_feature_telegram_bot(bool enabled)
+{
+    return set_feature_bool(MIMI_NVS_KEY_TELEGRAM_BOT, enabled);
+}
+
+esp_err_t mimi_set_feature_feishu_bot(bool enabled)
+{
+    return set_feature_bool(MIMI_NVS_KEY_FEISHU_BOT, enabled);
+}
+
+esp_err_t mimi_set_ble_target_addr(const char *addr)
+{
+    return set_feature_str(MIMI_NVS_KEY_BLE_TARGET_ADDR, addr);
+}
+
+esp_err_t mimi_set_camera_frame_size(int frame_size)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAMERA_FRAME_SIZE, frame_size);
+}
+
+esp_err_t mimi_set_camera_jpeg_quality(int quality)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAMERA_JPEG_QUALITY, quality);
+}
+
+esp_err_t mimi_set_cam_pin_pwdn(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_PWDN, pin);
+}
+
+esp_err_t mimi_set_cam_pin_reset(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_RESET, pin);
+}
+
+esp_err_t mimi_set_cam_pin_xclk(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_XCLK, pin);
+}
+
+esp_err_t mimi_set_cam_pin_siod(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_SIOD, pin);
+}
+
+esp_err_t mimi_set_cam_pin_sioc(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_SIOC, pin);
+}
+
+esp_err_t mimi_set_cam_pin_d7(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_D7, pin);
+}
+
+esp_err_t mimi_set_cam_pin_d6(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_D6, pin);
+}
+
+esp_err_t mimi_set_cam_pin_d5(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_D5, pin);
+}
+
+esp_err_t mimi_set_cam_pin_d4(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_D4, pin);
+}
+
+esp_err_t mimi_set_cam_pin_d3(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_D3, pin);
+}
+
+esp_err_t mimi_set_cam_pin_d2(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_D2, pin);
+}
+
+esp_err_t mimi_set_cam_pin_d1(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_D1, pin);
+}
+
+esp_err_t mimi_set_cam_pin_d0(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_D0, pin);
+}
+
+esp_err_t mimi_set_cam_pin_vsync(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_VSYNC, pin);
+}
+
+esp_err_t mimi_set_cam_pin_href(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_HREF, pin);
+}
+
+esp_err_t mimi_set_cam_pin_pclk(int pin)
+{
+    return set_feature_i32(MIMI_NVS_KEY_CAM_PIN_PCLK, pin);
+}
+
 /* ── DNS hijack ─────────────────────────────────────────────────── */
 
 /* Minimal DNS response: always answer 192.168.4.1 */

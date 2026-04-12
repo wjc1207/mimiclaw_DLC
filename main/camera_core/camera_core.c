@@ -6,7 +6,7 @@
 #include "freertos/semphr.h"
 
 #include "camera_config.h"
-#include "feature_config.h"
+#include "onboard/wifi_onboard.h"
 
 static const char *TAG = "camera";
 

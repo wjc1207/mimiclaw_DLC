@@ -1,6 +1,6 @@
 #include "serial_cli.h"
 #include "mimi_config.h"
-#include "feature_config.h"
+#include "onboard/wifi_onboard.h"
 #include "wifi/wifi_manager.h"
 #include "channels/telegram/telegram_bot.h"
 #include "channels/feishu/feishu_bot.h"

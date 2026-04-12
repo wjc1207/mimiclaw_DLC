@@ -25,7 +25,7 @@
 #include "cJSON.h"
 
 #include "mimi_config.h"
-#include "feature_config.h"
+#include "onboard/wifi_onboard.h"
 
 static const char *TAG = "tools";
 
