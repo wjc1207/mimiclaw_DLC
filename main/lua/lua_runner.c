@@ -145,15 +145,34 @@ esp_err_t lua_runner_exec(const char *script_path, int timeout_ms,
     };
 
     TaskHandle_t task_handle = NULL;
-    BaseType_t created = xTaskCreatePinnedToCore(
-        lua_exec_task, "lua_exec", LUA_TASK_STACK, &tc,
-        tskIDLE_PRIORITY + 1, &task_handle, tskNO_AFFINITY);
+    /* Try decreasing stack sizes like agent_loop does */
+    const uint32_t stack_candidates[] = {
+        LUA_TASK_STACK,     /* 16KB */
+        14 * 1024,
+        12 * 1024,
+        10 * 1024,
+        8 * 1024,
+        6 * 1024,
+    };
+
+    BaseType_t created = pdFAIL;
+    for (size_t i = 0; i < sizeof(stack_candidates) / sizeof(stack_candidates[0]); i++) {
+        uint32_t stack_size = stack_candidates[i];
+        created = xTaskCreatePinnedToCore(
+            lua_exec_task, "lua_exec", stack_size, &tc,
+            tskIDLE_PRIORITY + 1, &task_handle, tskNO_AFFINITY);
+        if (created == pdPASS) {
+            ESP_LOGI(TAG, "Lua task created with stack size %u bytes", (unsigned)stack_size);
+            break;
+        }
+        ESP_LOGW(TAG, "Failed to create Lua task with stack %u bytes, retrying...", (unsigned)stack_size);
+    }
 
     if (created != pdPASS) {
         vSemaphoreDelete(done_sem);
         free(ctx);
         lua_close(L);
-        *out_buf = strdup("Failed to create Lua execution task");
+        *out_buf = strdup("Failed to create Lua execution task (out of memory)");
         return ESP_FAIL;
     }
 
