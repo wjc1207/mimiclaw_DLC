@@ -12,3 +12,8 @@ esp_err_t agent_loop_init(void);
  * Consumes from inbound queue, calls Claude API, pushes to outbound queue.
  */
 esp_err_t agent_loop_start(void);
+
+/**
+ * Get current agent state: "idle" or "running"
+ */
+const char *agent_loop_get_state(void);

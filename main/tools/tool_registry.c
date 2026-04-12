@@ -215,11 +215,11 @@ esp_err_t tool_registry_init(void)
     /* Register a2a_client */
     mimi_tool_t ac = {
         .name = "a2a_client",
-        .description = "Call an A2A server with auto-filled device client_id. Supports actions: send/get/cancel/agent_card. Optional server/server_url/base_url overrides the default local device.",
+        .description = "Call an A2A server with auto-filled device client_id. Supports actions: send/get/cancel/status/agent_card. Optional server/server_url/base_url overrides the default local device.",
         .input_schema_json =
             "{\"type\":\"object\"," 
             "\"properties\":{"
-            "\"action\":{\"type\":\"string\",\"description\":\"send | get | cancel | agent_card\"},"
+            "\"action\":{\"type\":\"string\",\"description\":\"send | get | cancel | status | agent_card\"},"
             "\"message\":{\"type\":\"string\",\"description\":\"Message text, required for action=send\"},"
             "\"task_id\":{\"type\":\"string\",\"description\":\"Task ID, required for action=get/cancel\"},"
             "\"server\":{\"type\":\"string\",\"description\":\"Optional server host or base URL. Examples: 192.168.3.40, 192.168.3.40:18788, http://192.168.3.40:18788\"},"

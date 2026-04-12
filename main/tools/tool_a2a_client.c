@@ -90,6 +90,11 @@ static bool action_to_paths(const char *action, const char **endpoint, const cha
         *rpc_method = NULL;
         return true;
     }
+    if (strcmp(action, "status") == 0) {
+        *endpoint = NULL;
+        *rpc_method = NULL;
+        return true;
+    }
     if (strcmp(action, "send") == 0) {
         *endpoint = "/message/send";
         *rpc_method = "message/send";
@@ -263,7 +268,7 @@ esp_err_t tool_a2a_client_execute(const char *input_json, char *output, size_t o
     const char *action = (cJSON_IsString(action_item) && action_item->valuestring) ? action_item->valuestring : NULL;
     if (!action) {
         cJSON_Delete(input);
-        snprintf(output, output_size, "Error: Missing 'action' (send/get/cancel)");
+        snprintf(output, output_size, "Error: Missing 'action' (send/get/cancel/status/agent_card)");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -276,6 +281,7 @@ esp_err_t tool_a2a_client_execute(const char *input_json, char *output, size_t o
     }
 
     bool is_agent_card = (strcmp(action, "agent_card") == 0);
+    bool is_status = (strcmp(action, "status") == 0);
 
     cJSON *message_item = cJSON_GetObjectItem(input, "message");
     const char *message = (cJSON_IsString(message_item) && message_item->valuestring) ? message_item->valuestring : NULL;
@@ -315,7 +321,7 @@ esp_err_t tool_a2a_client_execute(const char *input_json, char *output, size_t o
 
     char client_id[17] = {0};
     char *body = NULL;
-    if (!is_agent_card) {
+    if (!is_agent_card && !is_status) {
         esp_err_t cid_err = build_local_client_id(client_id, sizeof(client_id));
         if (cid_err != ESP_OK) {
             cJSON_Delete(input);
@@ -386,6 +392,27 @@ esp_err_t tool_a2a_client_execute(const char *input_json, char *output, size_t o
 
         snprintf(output, output_size,
                  "status=%d\nserver=%s\npath=/well-known/agent.json\n%s",
+                 status,
+                 base_url,
+                 hb.data ? hb.data : "");
+        free(hb.data);
+        return ESP_OK;
+    }
+
+    if (is_status) {
+        char url[224];
+        snprintf(url, sizeof(url), "%s/status", base_url);
+
+        ESP_LOGI(TAG, "A2A status -> %s (server=%s)", url, server_final ? server_final : "(default)");
+        err = http_call(url, "GET", NULL, NULL, timeout_ms, &hb, &status);
+        if (err != ESP_OK) {
+            free(hb.data);
+            snprintf(output, output_size, "Error: HTTP failed (%s)", esp_err_to_name(err));
+            return err;
+        }
+
+        snprintf(output, output_size,
+                 "status=%d\nserver=%s\n%s",
                  status,
                  base_url,
                  hb.data ? hb.data : "");

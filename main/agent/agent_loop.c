@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "esp_log.h"
 #include "esp_heap_caps.h"
 #include "cJSON.h"
@@ -19,6 +20,36 @@
 static const char *TAG = "agent";
 
 #define TOOL_OUTPUT_SIZE  (120 * 1024)
+
+/* Agent state management for A2A /status endpoint */
+#define AGENT_STATE_IDLE     "idle"
+#define AGENT_STATE_WORK     "work"
+
+static SemaphoreHandle_t s_state_mutex = NULL;
+static const char *s_agent_state = AGENT_STATE_IDLE;
+
+const char *agent_loop_get_state(void)
+{
+    if (!s_state_mutex) {
+        return AGENT_STATE_IDLE;
+    }
+    if (xSemaphoreTake(s_state_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        return AGENT_STATE_IDLE;
+    }
+    const char *state = s_agent_state;
+    xSemaphoreGive(s_state_mutex);
+    return state;
+}
+
+static void agent_loop_set_state(const char *state)
+{
+    if (!state || !s_state_mutex) return;
+    if (xSemaphoreTake(s_state_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        return;
+    }
+    s_agent_state = state;
+    xSemaphoreGive(s_state_mutex);
+}
 
 /* Build the assistant content array from llm_response_t for the messages history.
  * Returns a cJSON array with text and tool_use blocks. */
@@ -344,11 +375,18 @@ static void agent_loop_task(void *arg)
 
     const char *tools_json = tool_registry_get_tools_json();
 
+    /* Initialize state mutex once */
+    if (!s_state_mutex) {
+        s_state_mutex = xSemaphoreCreateMutex();
+    }
+
     while (1) {
         mimi_msg_t msg;
         esp_err_t err = message_bus_pop_inbound(&msg, UINT32_MAX);
         if (err != ESP_OK) continue;
 
+        /* Mark agent as RUNNING */
+        agent_loop_set_state(AGENT_STATE_WORK);
         ESP_LOGI(TAG, "Processing message from %s:%s", msg.channel, msg.chat_id);
 
         /* 1. Build system prompt */
@@ -518,6 +556,9 @@ static void agent_loop_task(void *arg)
         /* Log memory status */
         ESP_LOGI(TAG, "Free PSRAM: %d bytes",
                  (int)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+
+        /* Mark agent as IDLE after processing */
+        agent_loop_set_state(AGENT_STATE_IDLE);
     }
 }
 
