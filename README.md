@@ -122,6 +122,9 @@ You can configure secrets in one of two ways:
 ## two-layer configuration
 swarmclaw uses a two-layer configuration system, see [config.md](config.md) for details.
 
+## Examples
+example use cases of swarmclaw, see [example.md](example.md) for details.
+
 ## Supported Channels
 
 | Channel | Description | Features |
@@ -159,6 +162,16 @@ swarmclaw uses a two-layer configuration system, see [config.md](config.md) for 
 |----------|-------|-------------|-------|
 | tavily | `tavily` | api.tavily.com | Default |
 | brave | `brave` | api.search.brave.com | |
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=wjc1207%2Fswarmclaw&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=wjc1207/swarmclaw&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=wjc1207/swarmclaw&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=wjc1207/swarmclaw&type=date&legend=top-left" />
+ </picture>
+</a>
 
 ## License
 
