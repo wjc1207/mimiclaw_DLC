@@ -20,6 +20,7 @@
 #include "bus/message_bus.h"
 #include "mimi_config.h"
 #include "agent/agent_loop.h"
+#include "tools/tool_registry.h"
 
 #define A2A_REQ_MAX_BYTES   4096
 #define A2A_RESP_MAX_BYTES  2048
@@ -862,21 +863,47 @@ static esp_err_t well_known_handler(httpd_req_t *req)
 {
     set_common_headers(req);
 
-    static const char *body =
-        "{"
-        "\"schema_version\":\"a2a-protocol-v1.0.0\"," 
-        "\"id\":\"swarmclaw\"," 
-        "\"name\":\"Swarmclaw\"," 
-        "\"description\":\"A2A channel backed by message_bus and agent ReACT loop.\"," 
-        "\"endpoints\":{"
-            "\"message_send\":\"/message/send\"," 
-            "\"tasks_get\":\"/tasks/get\"," 
-            "\"tasks_cancel\":\"/tasks/cancel\""
-        "},"
-        "\"task_mode\":\"hybrid_sync_async\""
-        "}";
+    /* Build dynamic agent card with tools from tool registry */
+    cJSON *resp = cJSON_CreateObject();
+    if (!resp) {
+        return httpd_resp_sendstr(req, "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32603,\"message\":\"Internal error\"}}");
+    }
 
-    return httpd_resp_sendstr(req, body);
+    cJSON_AddStringToObject(resp, "schema_version", "a2a-protocol-v1.0.0");
+    cJSON_AddStringToObject(resp, "id", "swarmclaw");
+    cJSON_AddStringToObject(resp, "name", "Swarmclaw");
+    cJSON_AddStringToObject(resp, "description", "A2A channel backed by message_bus and agent ReACT loop.");
+
+    /* Endpoints */
+    cJSON *endpoints = cJSON_CreateObject();
+    if (endpoints) {
+        cJSON_AddStringToObject(endpoints, "message_send", "/message/send");
+        cJSON_AddStringToObject(endpoints, "tasks_get", "/tasks/get");
+        cJSON_AddStringToObject(endpoints, "tasks_cancel", "/tasks/cancel");
+        cJSON_AddStringToObject(endpoints, "status", "/status");
+        cJSON_AddItemToObject(resp, "endpoints", endpoints);
+    }
+
+    cJSON_AddStringToObject(resp, "task_mode", "hybrid_sync_async");
+
+    /* Tools from registry */
+    const char *tools_json = tool_registry_get_tools_json();
+    if (tools_json) {
+        cJSON *tools = cJSON_Parse(tools_json);
+        if (tools) {
+            cJSON_AddItemToObject(resp, "tools", tools);
+        }
+    }
+
+    char *body = cJSON_PrintUnformatted(resp);
+    cJSON_Delete(resp);
+    if (!body) {
+        return httpd_resp_sendstr(req, "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32603,\"message\":\"Internal error\"}}");
+    }
+
+    esp_err_t ret = httpd_resp_sendstr(req, body);
+    free(body);
+    return ret;
 }
 
 esp_err_t a2a_server_start(void)
