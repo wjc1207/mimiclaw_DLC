@@ -20,10 +20,8 @@ static const char *TAG = "llm";
 #define LLM_MODEL_MAX_LEN   64
 #define LLM_DUMP_MAX_BYTES   (16 * 1024)
 #define LLM_DUMP_CHUNK_BYTES 320
-#define LLM_HTTP_BUFFER_RX    2048
-#define LLM_HTTP_BUFFER_TX    1024
-#define LLM_MIN_INTERNAL_FREE (12 * 1024)
-#define LLM_INTERNAL_WAIT_MS  1500
+#define LLM_HTTP_BUFFER_RX    1024
+#define LLM_HTTP_BUFFER_TX    512
 
 static char s_api_key[LLM_API_KEY_MAX_LEN] = {0};
 static char s_model[LLM_MODEL_MAX_LEN] = MIMI_LLM_DEFAULT_MODEL;
@@ -199,34 +197,6 @@ static void resp_buf_reset(resp_buf_t *rb)
     rb->data[0] = '\0';
 }
 
-static void llm_wait_internal_headroom(void)
-{
-    int waited_ms = 0;
-    size_t free_internal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
-    if (free_internal >= LLM_MIN_INTERNAL_FREE) {
-        return;
-    }
-
-    ESP_LOGW(TAG,
-             "Low internal RAM before LLM HTTP (free=%u, target=%u), wait up to %dms",
-             (unsigned)free_internal,
-             (unsigned)LLM_MIN_INTERNAL_FREE,
-             LLM_INTERNAL_WAIT_MS);
-
-    while (waited_ms < LLM_INTERNAL_WAIT_MS) {
-        vTaskDelay(pdMS_TO_TICKS(100));
-        waited_ms += 100;
-        free_internal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
-        if (free_internal >= LLM_MIN_INTERNAL_FREE) {
-            break;
-        }
-    }
-
-    ESP_LOGI(TAG,
-             "LLM HTTP preflight internal RAM: %u bytes (waited %dms)",
-             (unsigned)free_internal,
-             waited_ms);
-}
 
 /* ── Chunked transfer encoding decoder ───────────────────────── */
 
@@ -470,7 +440,6 @@ static esp_err_t llm_http_call(const char *post_data, resp_buf_t *rb, int *out_s
         return ESP_ERR_TIMEOUT;
     }
 
-    llm_wait_internal_headroom();
 
     esp_err_t ret = ESP_FAIL;
     if (http_proxy_is_enabled()) {

@@ -2,8 +2,28 @@
 
 #include "esp_camera.h"
 
+typedef struct {
+    const char *name;      // 外部使用（NVS/CLI/JSON）
+    framesize_t value;     // 内部使用（驱动）
+} frame_map_t;
+
+static const frame_map_t frame_size_map[] = {
+    {"160x120", FRAMESIZE_QQVGA},
+    {"176x144", FRAMESIZE_QCIF},
+    {"240x176", FRAMESIZE_HQVGA},
+    {"320x240", FRAMESIZE_QVGA},
+    {"400x296", FRAMESIZE_CIF},
+    {"480x320", FRAMESIZE_HVGA},
+    {"640x480", FRAMESIZE_VGA},
+    {"800x600", FRAMESIZE_SVGA},
+    {"1024x768", FRAMESIZE_XGA},
+    {"1280x720", FRAMESIZE_HD},
+    {"1280x1024", FRAMESIZE_SXGA},
+    {"1600x1200", FRAMESIZE_UXGA},
+};
+
 // Camera runtime settings
-#define CAMERA_STARTUP_SELF_TEST 0
+#define CAMERA_STARTUP_SELF_TEST 1
 #define CAMERA_STREAM_FRAME_SIZE FRAMESIZE_VGA
 #define CAMERA_STREAM_JPEG_QUALITY 8
 #define CAMERA_FB_COUNT 1

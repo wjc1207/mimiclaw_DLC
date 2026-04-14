@@ -549,6 +549,29 @@ static void print_config(const char *label, const char *ns, const char *key,
     }
 }
 
+static void print_config_int(const char *label, const char *ns, const char *nvs_key, const char *default_val)
+{
+    char value[32];
+    strncpy(value, default_val, sizeof(value) - 1);
+    const char *source = "build";
+
+    nvs_handle_t nvs;
+    if (nvs_open(ns, NVS_READONLY, &nvs) == ESP_OK) {
+        int32_t temp;
+        if (nvs_get_i32(nvs, nvs_key, &temp) == ESP_OK) {
+            snprintf(value, sizeof(value), "%d", (int)temp);
+            source = "NVS";
+        }
+        nvs_close(nvs);
+    }
+
+    if (strcmp(source, "not set") == 0) {
+        source = "build";
+    }
+
+    printf("  %-14s: %-10s  [%s]\n", label, value, source);
+}
+
 static void print_config_bool(const char *label, const char *ns, const char *key,
                               bool build_val)
 {
@@ -577,27 +600,68 @@ static void print_config_bool(const char *label, const char *ns, const char *key
 static int cmd_config_show(int argc, char **argv)
 {
     printf("=== Current Configuration ===\n");
+
+    /* WiFi */
     print_config("WiFi SSID",  MIMI_NVS_WIFI,   MIMI_NVS_KEY_SSID,     MIMI_SECRET_WIFI_SSID,  false);
     print_config("WiFi Pass",  MIMI_NVS_WIFI,   MIMI_NVS_KEY_PASS,     MIMI_SECRET_WIFI_PASS,  true);
+
+    /* Telegram */
     print_config("TG Token",   MIMI_NVS_TG,     MIMI_NVS_KEY_TG_TOKEN, MIMI_SECRET_TG_TOKEN,   true);
+
+    /* Feishu */
     print_config("FS App ID",  MIMI_NVS_FEISHU, MIMI_NVS_KEY_FEISHU_APP_ID, MIMI_SECRET_FEISHU_APP_ID, true);
     print_config("FS Secret",  MIMI_NVS_FEISHU, MIMI_NVS_KEY_FEISHU_APP_SECRET, MIMI_SECRET_FEISHU_APP_SECRET, true);
+
+    /* LLM */
     print_config("API Key",    MIMI_NVS_LLM,    MIMI_NVS_KEY_API_KEY,  MIMI_SECRET_API_KEY,    true);
     print_config("Model",      MIMI_NVS_LLM,    MIMI_NVS_KEY_MODEL,    MIMI_SECRET_MODEL,      false);
     print_config("Provider",   MIMI_NVS_LLM,    MIMI_NVS_KEY_PROVIDER, MIMI_SECRET_MODEL_PROVIDER, false);
-    print_config("Proxy Host", MIMI_NVS_PROXY,  MIMI_NVS_KEY_PROXY_HOST, MIMI_SECRET_PROXY_HOST, false);
-    print_config("Proxy Port", MIMI_NVS_PROXY,  MIMI_NVS_KEY_PROXY_PORT, MIMI_SECRET_PROXY_PORT, false);
+    print_config("Sys Prompt", MIMI_NVS_LLM,    MIMI_NVS_KEY_SYSTEM_PROMPT, "", false);
+
+    /* Search */
     print_config("Search Key", MIMI_NVS_SEARCH, MIMI_NVS_KEY_API_KEY,  MIMI_SECRET_SEARCH_KEY, true);
+    print_config("Tavily Key", MIMI_NVS_SEARCH, MIMI_NVS_KEY_TAVILY_KEY, MIMI_SECRET_TAVILY_KEY, true);
     print_config("Search Prov", MIMI_NVS_SEARCH, MIMI_NVS_KEY_SEARCH_PROVIDER, MIMI_SECRET_SEARCH_PROVIDER, false);
 
+    /* Proxy */
+    print_config("Proxy Host", MIMI_NVS_PROXY,  MIMI_NVS_KEY_PROXY_HOST, MIMI_SECRET_PROXY_HOST, false);
+    print_config("Proxy Port", MIMI_NVS_PROXY,  MIMI_NVS_KEY_PROXY_PORT, MIMI_SECRET_PROXY_PORT, false);
+    print_config("Proxy Type", MIMI_NVS_PROXY,  MIMI_NVS_KEY_PROXY_TYPE, MIMI_SECRET_PROXY_TYPE, false);
+
+    /* Camera Configuration */
+    printf("\n=== Camera Configuration ===\n");
+    print_config_int("Cam Frame Size", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_FRAME_SIZE, "0");
+    print_config_int("Cam JPEG Quality", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_JPEG_QUALITY, "8");
+    print_config_int("Cam PWDN Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_PWDN, "-1");
+    print_config_int("Cam Reset Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_RESET, "-1");
+    print_config_int("Cam XCLK Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_XCLK, "-1");
+    print_config_int("Cam SIOD Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_SIOD, "-1");
+    print_config_int("Cam SIOC Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_SIOC, "-1");
+    print_config_int("Cam D7 Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D7, "-1");
+    print_config_int("Cam D6 Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D6, "-1");
+    print_config_int("Cam D5 Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D5, "-1");
+    print_config_int("Cam D4 Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D4, "-1");
+    print_config_int("Cam D3 Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D3, "-1");
+    print_config_int("Cam D2 Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D2, "-1");
+    print_config_int("Cam D1 Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D1, "-1");
+    print_config_int("Cam D0 Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_D0, "-1");
+    print_config_int("Cam VSYNC Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_VSYNC, "-1");
+    print_config_int("Cam HREF Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_HREF, "-1");
+    print_config_int("Cam PCLK Pin", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_PIN_PCLK, "-1");
+    print_config_int("Cam XCLK Freq", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAM_XCLK_FREQ, "12000000");
+
+    /* BLE Configuration */
+    printf("\n=== BLE Configuration ===\n");
+    print_config("BLE Target Addr", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TARGET_ADDR, MIMI_BLE_TARGET_ADDR, false);
+    
     /* Features */
     printf("\n=== Features ===\n");
     print_config_bool("RGB Control",   MIMI_NVS_FEATURE, MIMI_NVS_KEY_RGB_CONTROL,     MIMI_FEATURE_RGB_CONTROL);
     print_config_bool("Camera Tool",   MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_TOOL,     MIMI_FEATURE_CAMERA_TOOL);
     print_config_bool("BLE Tool",      MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TOOL,        MIMI_FEATURE_BLE_TOOL);
-    print_config("BLE Target Addr", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TARGET_ADDR, MIMI_BLE_TARGET_ADDR,       false);
     print_config_bool("Telegram Bot",  MIMI_NVS_FEATURE, MIMI_NVS_KEY_TELEGRAM_BOT,    MIMI_FEATURE_TELEGRAM_BOT);
     print_config_bool("Feishu Bot",    MIMI_NVS_FEATURE, MIMI_NVS_KEY_FEISHU_BOT,      MIMI_FEATURE_FEISHU_BOT);
+
     printf("=============================\n");
     return 0;
 }

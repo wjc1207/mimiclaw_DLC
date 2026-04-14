@@ -102,6 +102,16 @@ static void apply_sensor_tuning(sensor_t *s)
              mimi_camera_jpeg_quality());
 }
 
+const char* frame_size_to_str(framesize_t size)
+{
+    for (int i = 0; i < sizeof(frame_size_map)/sizeof(frame_map_t); i++) {
+        if (frame_size_map[i].value == size) {
+            return frame_size_map[i].name;
+        }
+    }
+    return "UNKNOWN";
+}
+
 esp_err_t camera_core_init(void)
 {
     // Initialize camera pins from NVS or use default values
@@ -141,9 +151,8 @@ esp_err_t camera_core_init(void)
     }
 
     ESP_LOGI(TAG,
-             "Camera init frame_size=%d frame_size=%d",
-             CAMERA_INIT_FRAME_SIZE,
-             mimi_camera_frame_size());
+             "Camera init frame_size=%s",
+             frame_size_to_str(s_camera_config.frame_size));
 
     esp_err_t err = esp_camera_init(&s_camera_config);
     if (err != ESP_OK) {
