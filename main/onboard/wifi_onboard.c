@@ -292,7 +292,7 @@ bool mimi_feature_camera_server_enabled(void)
 #if !CONFIG_MIMI_CAMERA_SERVER_ENABLED
     return false;
 #endif
-    return get_feature_bool(MIMI_NVS_KEY_CAMERA_SERVER, MIMI_FEATURE_CAMERA_SERVER);
+    return mimi_feature_camera_tool_enabled() && get_feature_bool(MIMI_NVS_KEY_CAMERA_SERVER, MIMI_FEATURE_CAMERA_SERVER);
 }
 
 bool mimi_feature_ble_tool_enabled(void)
