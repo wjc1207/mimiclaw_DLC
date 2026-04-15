@@ -27,7 +27,7 @@ static const frame_map_t frame_size_map[] = {
 #define CAMERA_STREAM_FRAME_SIZE FRAMESIZE_VGA
 #define CAMERA_STREAM_JPEG_QUALITY 8
 #define CAMERA_FB_COUNT 1
-#define CAMERA_GRAB_MODE CAMERA_GRAB_WHEN_EMPTY
+#define CAMERA_GRAB_MODE CAMERA_GRAB_LATEST
 
 // /capture latest-frame behavior: drop stale frames before final capture
 #define CAMERA_CAPTURE_LATEST_DROP_COUNT 2

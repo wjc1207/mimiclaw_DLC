@@ -37,6 +37,12 @@ static bool s_captive_mode = false;
 #define MIMI_TOOL_CAMERA_AVAILABLE 0
 #endif
 
+#if defined(CONFIG_MIMI_CAMERA_SERVER_ENABLED)
+#define MIMI_CAMERA_SERVER_AVAILABLE CONFIG_MIMI_CAMERA_SERVER_ENABLED
+#else
+#define MIMI_CAMERA_SERVER_AVAILABLE 0
+#endif
+
 #if defined(CONFIG_MIMI_TOOL_BLE_ENABLED)
 #define MIMI_TOOL_BLE_AVAILABLE CONFIG_MIMI_TOOL_BLE_ENABLED
 #else
@@ -281,6 +287,14 @@ bool mimi_feature_camera_tool_enabled(void)
     return get_feature_bool(MIMI_NVS_KEY_CAMERA_TOOL, MIMI_FEATURE_CAMERA_TOOL);
 }
 
+bool mimi_feature_camera_server_enabled(void)
+{
+#if !CONFIG_MIMI_CAMERA_SERVER_ENABLED
+    return false;
+#endif
+    return get_feature_bool(MIMI_NVS_KEY_CAMERA_SERVER, MIMI_FEATURE_CAMERA_SERVER);
+}
+
 bool mimi_feature_ble_tool_enabled(void)
 {
 #if !CONFIG_MIMI_TOOL_BLE_ENABLED
@@ -412,6 +426,11 @@ esp_err_t mimi_set_feature_rgb_control(bool enabled)
 esp_err_t mimi_set_feature_camera_tool(bool enabled)
 {
     return set_feature_bool(MIMI_NVS_KEY_CAMERA_TOOL, enabled);
+}
+
+esp_err_t mimi_set_feature_camera_server(bool enabled)
+{
+    return set_feature_bool(MIMI_NVS_KEY_CAMERA_SERVER, enabled);
 }
 
 esp_err_t mimi_set_feature_ble_tool(bool enabled)
@@ -687,6 +706,7 @@ static esp_err_t http_get_config(httpd_req_t *req)
     /* Feature toggles */
     json_add_effective_config_bool(root, "rgb_control", MIMI_NVS_FEATURE, MIMI_NVS_KEY_RGB_CONTROL, MIMI_FEATURE_RGB_CONTROL);
     json_add_effective_config_bool(root, "camera_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_TOOL, MIMI_FEATURE_CAMERA_TOOL);
+    json_add_effective_config_bool(root, "camera_server", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_SERVER, MIMI_FEATURE_CAMERA_SERVER);
     json_add_effective_config_bool(root, "ble_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TOOL, MIMI_FEATURE_BLE_TOOL);
     json_add_effective_config(root, "ble_target_addr", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TARGET_ADDR, MIMI_BLE_TARGET_ADDR);
     json_add_effective_config_bool(root, "telegram_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_TELEGRAM_BOT, MIMI_FEATURE_TELEGRAM_BOT);
@@ -695,6 +715,7 @@ static esp_err_t http_get_config(httpd_req_t *req)
     /* Compile-time availability for onboard UI (layer 1) */
     cJSON_AddBoolToObject(root, "rgb_control_available", MIMI_TOOL_RGB_AVAILABLE);
     cJSON_AddBoolToObject(root, "camera_tool_available", MIMI_TOOL_CAMERA_AVAILABLE);
+    cJSON_AddBoolToObject(root, "camera_server_available", MIMI_CAMERA_SERVER_AVAILABLE);
     cJSON_AddBoolToObject(root, "ble_tool_available", MIMI_TOOL_BLE_AVAILABLE);
 
     /* Camera configuration */
@@ -902,6 +923,7 @@ static esp_err_t http_post_save(httpd_req_t *req)
     /* Feature toggles */
     nvs_sync_bool_field(root, "rgb_control", MIMI_NVS_FEATURE, MIMI_NVS_KEY_RGB_CONTROL);
     nvs_sync_bool_field(root, "camera_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_TOOL);
+    nvs_sync_bool_field(root, "camera_server", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_SERVER);
     nvs_sync_bool_field(root, "ble_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TOOL);
     nvs_sync_field(root, "ble_target_addr", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TARGET_ADDR);
     nvs_sync_bool_field(root, "telegram_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_TELEGRAM_BOT);

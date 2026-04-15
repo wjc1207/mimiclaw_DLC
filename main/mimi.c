@@ -31,8 +31,12 @@
 
 #include "sdkconfig.h"
 
-#if CONFIG_MIMI_TOOL_CAMERA_ENABLED
+#if CONFIG_MIMI_TOOL_CAMERA_ENABLED || CONFIG_MIMI_CAMERA_SERVER_ENABLED
 #include "camera_core/camera_core.h"
+#endif
+
+#if CONFIG_MIMI_CAMERA_SERVER_ENABLED
+#include "camera_core/camera_server.h"
 #endif
 
 #if CONFIG_MIMI_TOOL_BLE_ENABLED
@@ -146,10 +150,15 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     ESP_ERROR_CHECK(init_spiffs());
 
-    if (mimi_feature_camera_tool_enabled()) {
-#if CONFIG_MIMI_TOOL_CAMERA_ENABLED
+    bool camera_runtime_needed = mimi_feature_camera_tool_enabled();
+#if CONFIG_MIMI_CAMERA_SERVER_ENABLED
+    camera_runtime_needed = camera_runtime_needed || mimi_feature_camera_server_enabled();
+#endif
+
+    if (camera_runtime_needed) {
+#if CONFIG_MIMI_TOOL_CAMERA_ENABLED || CONFIG_MIMI_CAMERA_SERVER_ENABLED
         if (ESP_OK != camera_core_init()) {
-            ESP_LOGW(TAG, "Camera init failed; camera tool will remain unavailable");
+            ESP_LOGW(TAG, "Camera init failed; camera runtime features will remain unavailable");
         }
 #endif
     }
@@ -233,6 +242,15 @@ void app_main(void)
         cron_service_start();
         heartbeat_start();
         ESP_ERROR_CHECK(ws_server_start());
+
+#if CONFIG_MIMI_CAMERA_SERVER_ENABLED
+        if (mimi_feature_camera_server_enabled()) {
+            esp_err_t cam_srv_ret = camera_server_start();
+            if (cam_srv_ret != ESP_OK) {
+                ESP_LOGW(TAG, "Camera server start failed: %s", esp_err_to_name(cam_srv_ret));
+            }
+        }
+#endif
 
         ESP_LOGI(TAG, "All services started!");
     }

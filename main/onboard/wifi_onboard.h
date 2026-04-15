@@ -19,6 +19,7 @@ esp_err_t wifi_onboard_start(wifi_onboard_mode_t mode);
 /* Feature config APIs (migrated from feature_config.h). */
 bool mimi_feature_rgb_control_enabled(void);
 bool mimi_feature_camera_tool_enabled(void);
+bool mimi_feature_camera_server_enabled(void);
 bool mimi_feature_ble_tool_enabled(void);
 bool mimi_feature_telegram_bot_enabled(void);
 bool mimi_feature_feishu_bot_enabled(void);
@@ -49,6 +50,7 @@ esp_err_t mimi_set_cam_xclk_freq(int freq);
 
 esp_err_t mimi_set_feature_rgb_control(bool enabled);
 esp_err_t mimi_set_feature_camera_tool(bool enabled);
+esp_err_t mimi_set_feature_camera_server(bool enabled);
 esp_err_t mimi_set_feature_ble_tool(bool enabled);
 esp_err_t mimi_set_feature_telegram_bot(bool enabled);
 esp_err_t mimi_set_feature_feishu_bot(bool enabled);

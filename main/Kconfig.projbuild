@@ -12,6 +12,13 @@ menu "MimiClaw Optional Hardware Tools"
         help
             Build camera_capture tool and camera core support.
 
+    config MIMI_CAMERA_SERVER_ENABLED
+        bool "Enable camera debug HTTP server"
+        depends on MIMI_TOOL_CAMERA_ENABLED
+        default n
+        help
+            Build camera HTTP server with /capture endpoint for debug.
+
     config MIMI_TOOL_BLE_ENABLED
         bool "Enable BLE listener tool"
         default n

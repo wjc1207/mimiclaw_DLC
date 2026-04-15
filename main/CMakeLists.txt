@@ -39,6 +39,10 @@ if(CONFIG_MIMI_TOOL_CAMERA_ENABLED)
     list(APPEND srcs "camera_core/camera_core.c")
 endif()
 
+if(CONFIG_MIMI_CAMERA_SERVER_ENABLED)
+    list(APPEND srcs "camera_core/camera_server.c")
+endif()
+
 if(CONFIG_MIMI_TOOL_BLE_ENABLED)
     list(APPEND srcs "tools/tool_ble_listener.c")
     list(APPEND srcs "ble/bthome_listener.c")

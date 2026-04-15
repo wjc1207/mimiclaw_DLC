@@ -29,6 +29,14 @@
 #endif
 #endif
 
+#ifndef MIMI_FEATURE_CAMERA_SERVER
+#if CONFIG_MIMI_CAMERA_SERVER_ENABLED
+#define MIMI_FEATURE_CAMERA_SERVER 1
+#else
+#define MIMI_FEATURE_CAMERA_SERVER 0
+#endif
+#endif
+
 #ifndef MIMI_BLE_TARGET_ADDR
 #define MIMI_BLE_TARGET_ADDR "a4:c1:38:a0:0d:98"
 #endif
@@ -188,6 +196,9 @@
 #define MIMI_A2A_MAX_TASKS           32
 #define MIMI_A2A_SYNC_TIMEOUT_MS     5000
 
+/* Camera Debug Server */
+#define MIMI_CAMERA_SERVER_PORT      18787
+
 /* Serial CLI */
 #define MIMI_CLI_STACK               (4 * 1024)
 #define MIMI_CLI_PRIO                3
@@ -205,6 +216,7 @@
 /* NVS Keys for Features */
 #define MIMI_NVS_KEY_RGB_CONTROL     "rgb_control"
 #define MIMI_NVS_KEY_CAMERA_TOOL     "camera_tool"
+#define MIMI_NVS_KEY_CAMERA_SERVER   "camera_server"
 #define MIMI_NVS_KEY_BLE_TOOL        "ble_tool"
 #define MIMI_NVS_KEY_BLE_TARGET_ADDR "ble_target_addr"
 #define MIMI_NVS_KEY_TELEGRAM_BOT    "telegram_bot"

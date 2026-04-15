@@ -658,6 +658,7 @@ static int cmd_config_show(int argc, char **argv)
     printf("\n=== Features ===\n");
     print_config_bool("RGB Control",   MIMI_NVS_FEATURE, MIMI_NVS_KEY_RGB_CONTROL,     MIMI_FEATURE_RGB_CONTROL);
     print_config_bool("Camera Tool",   MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_TOOL,     MIMI_FEATURE_CAMERA_TOOL);
+    print_config_bool("Camera Server", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_SERVER,   MIMI_FEATURE_CAMERA_SERVER);
     print_config_bool("BLE Tool",      MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TOOL,        MIMI_FEATURE_BLE_TOOL);
     print_config_bool("Telegram Bot",  MIMI_NVS_FEATURE, MIMI_NVS_KEY_TELEGRAM_BOT,    MIMI_FEATURE_TELEGRAM_BOT);
     print_config_bool("Feishu Bot",    MIMI_NVS_FEATURE, MIMI_NVS_KEY_FEISHU_BOT,      MIMI_FEATURE_FEISHU_BOT);
@@ -757,6 +758,8 @@ static int cmd_set_feature(int argc, char **argv)
         err = mimi_set_feature_rgb_control(value);
     } else if (strcmp(feature, "camera_tool") == 0) {
         err = mimi_set_feature_camera_tool(value);
+    } else if (strcmp(feature, "camera_server") == 0) {
+        err = mimi_set_feature_camera_server(value);
     } else if (strcmp(feature, "ble_tool") == 0) {
         err = mimi_set_feature_ble_tool(value);
     } else if (strcmp(feature, "telegram_bot") == 0) {
@@ -764,7 +767,7 @@ static int cmd_set_feature(int argc, char **argv)
     } else if (strcmp(feature, "feishu_bot") == 0) {
         err = mimi_set_feature_feishu_bot(value);
     } else {
-        printf("Unknown feature: %s. Use: rgb_control, camera_tool, ble_tool, telegram_bot, feishu_bot\n", feature);
+        printf("Unknown feature: %s. Use: rgb_control, camera_tool, camera_server, ble_tool, telegram_bot, feishu_bot\n", feature);
         return 1;
     }
 
@@ -1103,7 +1106,7 @@ esp_err_t serial_cli_init(void)
     esp_console_cmd_register(&tool_exec_cmd);
 
     /* set_feature */
-    set_feature_args.feature = arg_str1(NULL, NULL, "<feature>", "Feature name (rgb_control|camera_tool|ble_tool|telegram_bot|feishu_bot)");
+    set_feature_args.feature = arg_str1(NULL, NULL, "<feature>", "Feature name (rgb_control|camera_tool|camera_server|ble_tool|telegram_bot|feishu_bot)");
     set_feature_args.value = arg_str1(NULL, NULL, "<value>", "Value (true|false|1|0)");
     set_feature_args.end = arg_end(2);
     esp_console_cmd_t set_feature_cmd = {
