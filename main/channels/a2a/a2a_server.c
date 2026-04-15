@@ -19,7 +19,6 @@
 
 #include "bus/message_bus.h"
 #include "mimi_config.h"
-#include "agent/agent_loop.h"
 #include "tools/tool_registry.h"
 
 #define A2A_REQ_MAX_BYTES   4096
@@ -835,30 +834,6 @@ static void log_device_client_id(void)
     ESP_LOGI(TAG, "========================================");
 }
 
-static esp_err_t status_handler(httpd_req_t *req)
-{
-    set_common_headers(req);
-
-    const char *state = agent_loop_get_state();
-
-    cJSON *resp = cJSON_CreateObject();
-    if (!resp) {
-        return httpd_resp_sendstr(req, "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32603,\"message\":\"Internal error\"}}");
-    }
-
-    cJSON_AddStringToObject(resp, "agent_state", state);
-
-    char *body = cJSON_PrintUnformatted(resp);
-    cJSON_Delete(resp);
-    if (!body) {
-        return httpd_resp_sendstr(req, "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32603,\"message\":\"Internal error\"}}");
-    }
-
-    esp_err_t ret = httpd_resp_sendstr(req, body);
-    free(body);
-    return ret;
-}
-
 static esp_err_t well_known_handler(httpd_req_t *req)
 {
     set_common_headers(req);
@@ -880,7 +855,6 @@ static esp_err_t well_known_handler(httpd_req_t *req)
         cJSON_AddStringToObject(endpoints, "message_send", "/message/send");
         cJSON_AddStringToObject(endpoints, "tasks_get", "/tasks/get");
         cJSON_AddStringToObject(endpoints, "tasks_cancel", "/tasks/cancel");
-        cJSON_AddStringToObject(endpoints, "status", "/status");
         cJSON_AddItemToObject(resp, "endpoints", endpoints);
     }
 
@@ -938,7 +912,7 @@ esp_err_t a2a_server_start(void)
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port = MIMI_A2A_PORT;
     config.ctrl_port = MIMI_A2A_PORT + 1;
-    config.max_uri_handlers = 12;
+    config.max_uri_handlers = 11;
     config.stack_size = MIMI_A2A_STACK;
 
     esp_err_t ret = httpd_start(&s_server, &config);
@@ -989,14 +963,6 @@ esp_err_t a2a_server_start(void)
         .user_ctx = NULL,
     };
     httpd_register_uri_handler(s_server, &well_known_uri);
-
-    httpd_uri_t status_uri = {
-        .uri = "/status",
-        .method = HTTP_GET,
-        .handler = status_handler,
-        .user_ctx = NULL,
-    };
-    httpd_register_uri_handler(s_server, &status_uri);
 
     ESP_LOGI(TAG, "A2A server started on port %d", MIMI_A2A_PORT);
     return ESP_OK;

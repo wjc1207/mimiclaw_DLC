@@ -19,7 +19,7 @@
 
 static const char *TAG = "agent";
 
-#define TOOL_OUTPUT_SIZE  (120 * 1024)
+#define TOOL_OUTPUT_SIZE  (500 * 1024)
 
 /* Agent state management for A2A /status endpoint */
 #define AGENT_STATE_IDLE     "idle"
