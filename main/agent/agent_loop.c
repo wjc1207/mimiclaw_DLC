@@ -7,6 +7,7 @@
 #include "memory/session_mgr.h"
 #include "tools/tool_registry.h"
 #include "bus/message_bus.h"
+#include "tools/tool_get_time.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -16,40 +17,15 @@
 #include "esp_log.h"
 #include "esp_heap_caps.h"
 #include "cJSON.h"
+#include "esp_timer.h"
 
 static const char *TAG = "agent";
 
 #define TOOL_OUTPUT_SIZE  (500 * 1024)
 
-/* Agent state management for A2A /status endpoint */
-#define AGENT_STATE_IDLE     "idle"
-#define AGENT_STATE_WORK     "work"
+/* Last agent loop execution time for context */
+static uint64_t s_last_execution_time = 0;
 
-static SemaphoreHandle_t s_state_mutex = NULL;
-static const char *s_agent_state = AGENT_STATE_IDLE;
-
-const char *agent_loop_get_state(void)
-{
-    if (!s_state_mutex) {
-        return AGENT_STATE_IDLE;
-    }
-    if (xSemaphoreTake(s_state_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
-        return AGENT_STATE_IDLE;
-    }
-    const char *state = s_agent_state;
-    xSemaphoreGive(s_state_mutex);
-    return state;
-}
-
-static void agent_loop_set_state(const char *state)
-{
-    if (!state || !s_state_mutex) return;
-    if (xSemaphoreTake(s_state_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
-        return;
-    }
-    s_agent_state = state;
-    xSemaphoreGive(s_state_mutex);
-}
 
 /* Build the assistant content array from llm_response_t for the messages history.
  * Returns a cJSON array with text and tool_use blocks. */
@@ -106,13 +82,38 @@ static void append_turn_context_prompt(char *prompt, size_t size, const mimi_msg
         return;
     }
 
+    char time_str[64];
+    tool_get_time_execute(NULL, time_str, sizeof(time_str));
+
+    /* Calculate time since last execution */
+    char time_since_last_str[64] = "(first run)";
+    if (s_last_execution_time > 0) {
+        uint64_t current_time_ms = esp_timer_get_time() / 1000;
+        uint64_t time_diff_ms = current_time_ms - s_last_execution_time;
+
+        if (time_diff_ms < 1000) {
+            snprintf(time_since_last_str, sizeof(time_since_last_str), "%llu ms", time_diff_ms);
+        } else if (time_diff_ms < 60 * 1000) {
+            snprintf(time_since_last_str, sizeof(time_since_last_str), "%.1f s", time_diff_ms / 1000.0);
+        } else if (time_diff_ms < 60 * 60 * 1000) {
+            snprintf(time_since_last_str, sizeof(time_since_last_str), "%.1f min", time_diff_ms / (60 * 1000.0));
+        } else {
+            snprintf(time_since_last_str, sizeof(time_since_last_str), "%.1f h", time_diff_ms / (60 * 60 * 1000.0));
+        }
+    }
+
     int n = snprintf(
         prompt + off, size - off,
         "\n## Current Turn Context\n"
         "- source_channel: %s\n"
-        "- source_chat_id: %s\n",
+        "- source_chat_id: %s\n"
+        "- time: %s\n"
+        "- time_since_last_execution: %s\n",
         msg->channel[0] ? msg->channel : "(unknown)",
-        msg->chat_id[0] ? msg->chat_id : "(empty)");
+        msg->chat_id[0] ? msg->chat_id : "(empty)",
+        time_str,
+        time_since_last_str
+    );
 
     if (n < 0 || (size_t)n >= (size - off)) {
         prompt[size - 1] = '\0';
@@ -375,18 +376,10 @@ static void agent_loop_task(void *arg)
 
     const char *tools_json = tool_registry_get_tools_json();
 
-    /* Initialize state mutex once */
-    if (!s_state_mutex) {
-        s_state_mutex = xSemaphoreCreateMutex();
-    }
-
     while (1) {
         mimi_msg_t msg;
         esp_err_t err = message_bus_pop_inbound(&msg, UINT32_MAX);
         if (err != ESP_OK) continue;
-
-        /* Mark agent as RUNNING */
-        agent_loop_set_state(AGENT_STATE_WORK);
         ESP_LOGI(TAG, "Processing message from %s:%s", msg.channel, msg.chat_id);
 
         /* 1. Build system prompt */
@@ -557,8 +550,9 @@ static void agent_loop_task(void *arg)
         ESP_LOGI(TAG, "Free PSRAM: %d bytes",
                  (int)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 
-        /* Mark agent as IDLE after processing */
-        agent_loop_set_state(AGENT_STATE_IDLE);
+        /* Update last execution time */
+        s_last_execution_time = esp_timer_get_time() / 1000;
+
     }
 }
 

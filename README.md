@@ -125,6 +125,9 @@ swarmclaw uses a two-layer configuration system, see [config.md](config.md) for 
 ## Examples
 example use cases of swarmclaw, see [example.md](example.md) for details.
 
+## Features
+see [features.md](features.md) for detailed feature list and roadmap.
+
 ## Supported Channels
 
 | Channel | Description | Features |

@@ -1,4 +1,4 @@
-menu "MimiClaw Optional Hardware Tools"
+menu "Swarmclaw Optional Hardware Tools"
 
     config MIMI_TOOL_RGB_ENABLED
         bool "Enable RGB control tool"
