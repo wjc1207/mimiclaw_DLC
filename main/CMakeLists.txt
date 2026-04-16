@@ -31,21 +31,6 @@ set(srcs
 )
 
 if(CONFIG_MIMI_TOOL_RGB_ENABLED)
-    list(APPEND srcs "tools/tool_rgb_control.c")
-endif()
-
-if(CONFIG_MIMI_TOOL_CAMERA_ENABLED)
-    list(APPEND srcs "tools/tool_camera_capture.c")
-    list(APPEND srcs "camera_core/camera_core.c")
-endif()
-
-if(CONFIG_MIMI_CAMERA_SERVER_ENABLED)
-    list(APPEND srcs "camera_core/camera_server.c")
-endif()
-
-if(CONFIG_MIMI_TOOL_BLE_ENABLED)
-    list(APPEND srcs "tools/tool_ble_listener.c")
-    list(APPEND srcs "ble/bthome_listener.c")
 endif()
 
 idf_component_register(
@@ -56,4 +41,5 @@ idf_component_register(
         nvs_flash esp_wifi esp_netif esp_http_client esp_http_server
         esp_https_ota esp_event json spiffs console vfs app_update esp-tls
         driver esp_timer led_strip lua esp_websocket_client esp32-camera bt mbedtls
+        camera ble rgb
 )

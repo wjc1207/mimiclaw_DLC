@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include "esp_timer.h"
-#include "ble/bthome_listener.h"
+#include "bthome_listener.h"
 
 static void tool_ble_execute(char *out, size_t out_size)
 {

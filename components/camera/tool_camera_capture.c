@@ -12,7 +12,7 @@
 #include "img_converters.h"
 #include "mbedtls/base64.h"
 
-#include "camera_core/camera_core.h"
+#include "camera_core.h"
 #include "cJSON.h"
 
 static const char *TAG = "tool_camera";

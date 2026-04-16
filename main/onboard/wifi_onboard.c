@@ -2,7 +2,7 @@
 #include "onboard_html.h"
 #include "mimi_config.h"
 #include "wifi/wifi_manager.h"
-#include "camera_core/camera_config.h"
+#include "camera_config.h"
 #include "sdkconfig.h"
 
 #include <stdint.h>

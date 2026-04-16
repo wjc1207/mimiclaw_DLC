@@ -1,0 +1,1 @@
+/* Empty translation unit to keep component valid when BLE tool is disabled. */

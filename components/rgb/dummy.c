@@ -1,0 +1,1 @@
+/* Empty translation unit to keep component valid when RGB tool is disabled. */

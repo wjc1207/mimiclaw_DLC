@@ -9,15 +9,15 @@
 #include "sdkconfig.h"
 
 #if CONFIG_MIMI_TOOL_RGB_ENABLED
-#include "tools/tool_rgb_control.h"
+#include "tool_rgb_control.h"
 #endif
 
 #if CONFIG_MIMI_TOOL_CAMERA_ENABLED
-#include "tools/tool_camera_capture.h"
+#include "tool_camera_capture.h"
 #endif
 
 #if CONFIG_MIMI_TOOL_BLE_ENABLED
-#include "tools/tool_ble_listener.h"
+#include "tool_ble_listener.h"
 #endif
 
 #include <string.h>

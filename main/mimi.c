@@ -32,15 +32,15 @@
 #include "sdkconfig.h"
 
 #if CONFIG_MIMI_TOOL_CAMERA_ENABLED || CONFIG_MIMI_CAMERA_SERVER_ENABLED
-#include "camera_core/camera_core.h"
+#include "camera_core.h"
 #endif
 
 #if CONFIG_MIMI_CAMERA_SERVER_ENABLED
-#include "camera_core/camera_server.h"
+#include "camera_server.h"
 #endif
 
 #if CONFIG_MIMI_TOOL_BLE_ENABLED
-#include "ble/bthome_listener.h"
+#include "bthome_listener.h"
 #endif
 
 static const char *TAG = "mimi";
@@ -254,6 +254,12 @@ void app_main(void)
 
         ESP_LOGI(TAG, "All services started!");
     }
+
+    /* Print memory info */
+    ESP_LOGI(TAG, "Internal free: %d bytes",
+             (int)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    ESP_LOGI(TAG, "PSRAM free:    %d bytes",
+             (int)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 
     ESP_LOGI(TAG, "MimiClaw ready. Type 'help' for CLI commands.");
 }
