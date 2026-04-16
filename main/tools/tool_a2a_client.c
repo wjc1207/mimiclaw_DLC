@@ -359,7 +359,7 @@ esp_err_t tool_a2a_client_execute(const char *input_json, char *output, size_t o
         char url_card[224];
         char url_legacy[224];
         snprintf(url_card, sizeof(url_card), "%s/.well-known/agent-card.json", base_url);
-        snprintf(url_legacy, sizeof(url_legacy), "%s/well-known/agent.json", base_url);
+        snprintf(url_legacy, sizeof(url_legacy), "%s/.well-known/agent.json", base_url);
 
         ESP_LOGI(TAG, "A2A agent_card -> %s", url_card);
         err = http_call(url_card, "GET", NULL, NULL, timeout_ms, &hb, &status);
@@ -385,7 +385,7 @@ esp_err_t tool_a2a_client_execute(const char *input_json, char *output, size_t o
         }
 
         snprintf(output, output_size,
-                 "status=%d\nserver=%s\npath=/well-known/agent.json\n%s",
+                 "status=%d\nserver=%s\npath=/.well-known/agent.json\n%s",
                  status,
                  base_url,
                  hb.data ? hb.data : "");
