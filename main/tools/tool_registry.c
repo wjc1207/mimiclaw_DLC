@@ -7,7 +7,6 @@
 #include "tools/tool_a2a_client.h"
 #include "tools/tool_script.h"
 #include "sdkconfig.h"
-#include "tools/tool_sleep.h"
 
 #if CONFIG_MIMI_TOOL_RGB_ENABLED
 #include "tool_rgb_control.h"
@@ -99,21 +98,6 @@ esp_err_t tool_registry_init(void)
         .execute = tool_get_time_execute,
     };
     register_tool(&gt);
-
-    /* Register sleep */
-    mimi_tool_t sl = {
-        .name = "sleep",
-        .description = "Make the agent sleep for a specified duration. Use this when you need to wait for other tasks or processes to complete without blocking the entire system. Supports milliseconds or seconds.",
-        .input_schema_json =
-            "{\"type\":\"object\","
-            "\"properties\":{"
-            "\"duration_ms\":{\"type\":\"integer\",\"description\":\"Sleep duration in milliseconds (minimum 10ms, maximum 5 minutes)\"},"
-            "\"duration_s\":{\"type\":\"integer\",\"description\":\"Sleep duration in seconds (minimum 0.01s, maximum 5 minutes)\"}"
-            "},"
-            "\"required\":[]}",
-        .execute = tool_sleep_execute,
-    };
-    register_tool(&sl);
 
     /* Register read_file */
     mimi_tool_t rf = {

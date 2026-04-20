@@ -24,7 +24,6 @@ set(srcs
     "tools/tool_http_request.c"
     "tools/tool_a2a_client.c"
     "tools/tool_script.c"
-    "tools/tool_sleep.c"
     "lua/lua_runner.c"
     "lua/lua_gpio_lib.c"
     "skills/skill_loader.c"

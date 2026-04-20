@@ -10,4 +10,3 @@
 ## Feat. 3. Time Perception
 - tool get time: tools can access current time and timestamps for better context and scheduling
 - prompt: current time and time since last execution are included in the prompt for more informed decision making
-- sleep tool: allows agents to pause execution for a specified duration, enabling better timing control and resource management
