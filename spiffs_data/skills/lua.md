@@ -3,8 +3,8 @@
 ## Purpose
 Use this skill whenever you need to write Lua scripts that control hardware
 peripherals on an ESP32 device using the built-in `lua_gpio_lib` bindings.
-This skill covers every available module: `gpio`, `i2c`, `spi`, `rgb`, `pwm`,
-and `sleep`.
+This skill covers the available modules: `gpio`, `rgb` (when enabled in
+Kconfig), `pwm`, and `sleep`.
 
 ---
 
@@ -24,50 +24,9 @@ local level = gpio.read(4)
 print("Pin 4 level:", level)
 ```
 
----
-
-### `i2c` — I²C Bus
-
-| Function | Signature | Returns | Description |
-|---|---|---|---|
-| `i2c.write` | `i2c.write(sda, scl, addr, data_table, [freq])` | nothing | Write bytes to an I²C device |
-| `i2c.read` | `i2c.read(sda, scl, addr, len, [freq])` | `string` (JSON array) | Read `len` bytes from an I²C device |
-
-**Defaults:** `freq` defaults to `100000` (100 kHz) when omitted.
-
-`data_table` must be a Lua table of integers (byte values 0–255).
-
-```lua
--- Write register 0x00 with value 0xFF to device at address 0x3C
--- SDA=21, SCL=22, 400 kHz
-i2c.write(21, 22, 0x3C, {0x00, 0xFF}, 400000)
-
--- Read 6 bytes from device 0x68 (e.g. MPU-6050)
-local raw = i2c.read(21, 22, 0x68, 6)
-print("Raw bytes:", raw)
-```
-
----
-
-### `spi` — SPI Bus
-
-| Function | Signature | Returns | Description |
-|---|---|---|---|
-| `spi.transfer` | `spi.transfer(mosi, miso, sclk, cs, tx_table)` | `string` (JSON result) | Full-duplex SPI transfer |
-
-`tx_table` is a Lua table of bytes to send. The return value contains the
-received bytes from the bus.
-
-```lua
--- Send 0x9F (JEDEC ID command) and read 3 response bytes
--- MOSI=23, MISO=19, SCLK=18, CS=5
-local rx = spi.transfer(23, 19, 18, 5, {0x9F, 0x00, 0x00, 0x00})
-print("SPI RX:", rx)
-```
-
----
-
 ### `rgb` — Addressable RGB LEDs (NeoPixel / WS2812)
+
+> This module is only available when `CONFIG_MIMI_TOOL_RGB_ENABLED` is enabled.
 
 | Function | Signature | Returns | Description |
 |---|---|---|---|
@@ -132,7 +91,7 @@ sleep.ms(50)     -- wait 50 ms
 ## Error Handling
 
 All library functions raise a Lua error (via `luaL_error`) if the underlying
-`tool_gpio_execute` call fails. Wrap calls in `pcall` for recoverable error
+hardware operation fails. Wrap calls in `pcall` for recoverable error
 handling:
 
 ```lua
@@ -171,19 +130,6 @@ while true do
         last = cur
     end
 end
-```
-
-### I²C sensor read-register helper
-```lua
--- Write a register address, then read N bytes back
-local function i2c_read_reg(sda, scl, addr, reg, len)
-    i2c.write(sda, scl, addr, {reg})
-    return i2c.read(sda, scl, addr, len)
-end
-
--- Example: read WHO_AM_I register (0x75) of MPU-6050 at 0x68
-local id = i2c_read_reg(21, 22, 0x68, 0x75, 1)
-print("WHO_AM_I:", id)
 ```
 
 ### PWM LED fade
@@ -237,17 +183,12 @@ end
 1. **Always use integer pin numbers.** Passing a float or nil will raise a Lua
    error.
 2. **`rgb.fill` must be followed by `rgb.show`** before colours appear on the
-   hardware.
-3. **I²C / SPI `data` arguments must be Lua tables** (not strings). Convert
-   strings with `{string.byte(s, 1, -1)}` if needed.
-4. **`i2c.read` and `spi.transfer` return a JSON-encoded string**, not a plain
-   number. Parse with `require("cjson").decode(result)` if your runtime has
-   cjson, or handle as a raw string.
-5. **Duty cycle for PWM is 0–1023** (10-bit). Values outside this range may
+    hardware, and only if the RGB module is enabled in Kconfig.
+3. **Duty cycle for PWM is 0–1023** (10-bit). Values outside this range may
    produce unexpected behaviour.
-6. **`sleep.ms` blocks the FreeRTOS task.** Keep delay values reasonable to
+4. **`sleep.ms` blocks the FreeRTOS task.** Keep delay values reasonable to
    avoid watchdog timeouts (stay well under the configured WDT period).
-7. **No persistent state between calls.** Each `gpio`, `i2c`, `spi`, etc. call
+5. **No persistent state between calls.** Each `gpio`, `rgb`, `pwm`, or `sleep`
    is stateless; bus/pin configuration is handled inside the tool layer.
 
 ---
@@ -257,16 +198,8 @@ end
 ```
 gpio.write(pin, 0|1)
 gpio.read(pin)                         → 0|1
-
-i2c.write(sda, scl, addr, {bytes}, [freq])
-i2c.read(sda, scl, addr, len, [freq]) → "[b0,b1,…]"
-
-spi.transfer(mosi, miso, sclk, cs, {tx_bytes}) → "[rx_bytes]"
-
-rgb.fill(pin, n, r, g, b)
-rgb.show(pin, n)
-
+rgb.fill(pin, n, r, g, b)              (when enabled)
+rgb.show(pin, n)                       (when enabled)
 pwm.start(pin, freq_hz, duty_0_1023)
-
 sleep.ms(milliseconds)
 ```

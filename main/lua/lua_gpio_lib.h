@@ -7,9 +7,7 @@
  *
  * Registers the following globals:
  *   gpio.write(pin, val)       gpio.read(pin)
- *   i2c.write(sda,scl,addr,data,freq)  i2c.read(sda,scl,addr,len,freq)
- *   spi.transfer(mosi,miso,sclk,cs,tx)
- *   rgb.fill(pin,n,r,g,b)     rgb.show(pin,n)
+ *   rgb.fill(pin,n,r,g,b)     rgb.show(pin,n)  (when CONFIG_MIMI_TOOL_RGB_ENABLED)
  *   pwm.start(pin,freq,duty)
  *   sleep.ms(ms)
  */

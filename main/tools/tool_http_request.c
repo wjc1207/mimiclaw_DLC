@@ -15,7 +15,7 @@ static const char *TAG = "http_request";
 
 #define HTTP_BUF_SIZE       (16 * 1024)
 #define HTTP_IMAGE_BUF_SIZE (200 * 1024)   /* 200KB for binary image data */
-#define HTTP_TIMEOUT_MS     15000
+#define HTTP_TIMEOUT_MS     (60 * 1000)
 
 /* ── Response accumulator ─────────────────────────────────────── */
 
