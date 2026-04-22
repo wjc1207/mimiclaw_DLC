@@ -956,14 +956,6 @@ esp_err_t a2a_server_start(void)
     };
     httpd_register_uri_handler(s_server, &well_known_card_uri);
 
-    httpd_uri_t well_known_uri = {
-        .uri = "/.well-known/agent.json",
-        .method = HTTP_GET,
-        .handler = well_known_handler,
-        .user_ctx = NULL,
-    };
-    httpd_register_uri_handler(s_server, &well_known_uri);
-
     ESP_LOGI(TAG, "A2A server started on port %d", MIMI_A2A_PORT);
     return ESP_OK;
 }

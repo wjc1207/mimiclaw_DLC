@@ -192,7 +192,7 @@
 
 /* A2A Server */
 #define MIMI_A2A_PORT                18788
-#define MIMI_A2A_STACK               (10 * 1024)
+#define MIMI_A2A_STACK               (8 * 1024)
 #define MIMI_A2A_MAX_TASKS           32
 #define MIMI_A2A_SYNC_TIMEOUT_MS     5000
 

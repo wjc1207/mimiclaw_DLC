@@ -7,6 +7,5 @@
 ## Feat. 2. A2A Communication Protocol
 - Swarmclaw implements a custom Agent-to-Agent (A2A) communication protocol for seamless interaction between multiple agents and tools, enabling complex workflows and multi-agent collaboration on resource-constrained devices
 
-## Feat. 3. Time Perception
-- tool get time: tools can access current time and timestamps for better context and scheduling
-- prompt: current time and time since last execution are included in the prompt for more informed decision making
+## Feat. 3. lua scripting support
+- Swarmclaw integrates Lua scripting support, allowing ai agents to write and execute Lua scripts for dynamic behavior, task automation, and on-the-fly adjustments to their operations, enhancing flexibility and adaptability in various scenarios
