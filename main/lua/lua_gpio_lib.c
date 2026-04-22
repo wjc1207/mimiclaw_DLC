@@ -13,10 +13,6 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 
-#if CONFIG_MIMI_TOOL_RGB_ENABLED
-#include "led_strip.h"
-#endif
-
 #include "lua.h"
 #include "lauxlib.h"
 
@@ -29,22 +25,8 @@ static const char *TAG = "lua_gpio_lib";
 typedef enum {
     PIN_FREE = 0,
     PIN_GPIO,
-#if CONFIG_MIMI_TOOL_RGB_ENABLED
-    PIN_RGB,
-#endif
     PIN_PWM,
 } pin_usage_t;
-
-#if CONFIG_MIMI_TOOL_RGB_ENABLED
-#define MAX_RGB_STRIPS 4
-#define RMT_RESOLUTION (10 * 1000 * 1000)
-
-typedef struct {
-    int pin;
-    int num_pixels;
-    led_strip_handle_t strip;
-} rgb_entry_t;
-#endif
 
 typedef struct {
     int pin;
@@ -55,11 +37,6 @@ typedef struct {
 
 static pin_usage_t s_pin_usage[GPIO_PIN_MAX];
 static SemaphoreHandle_t s_mutex = NULL;
-
-#if CONFIG_MIMI_TOOL_RGB_ENABLED
-static rgb_entry_t s_rgb[MAX_RGB_STRIPS];
-static int s_rgb_count = 0;
-#endif
 
 static pwm_entry_t s_pwm[MAX_PWM_CHANNELS];
 static int s_pwm_count = 0;
@@ -158,117 +135,6 @@ static const luaL_Reg gpio_lib[] = {
     {"read", l_gpio_read},
     {NULL, NULL},
 };
-
-#if CONFIG_MIMI_TOOL_RGB_ENABLED
-/* ── rgb module ───────────────────────────────────────────── */
-
-static led_strip_handle_t rgb_get_strip(lua_State *L, int pin, int num_pixels)
-{
-    for (int i = 0; i < s_rgb_count; i++) {
-        if (s_rgb[i].pin == pin) {
-            if (s_rgb[i].num_pixels < num_pixels) {
-                led_strip_del(s_rgb[i].strip);
-                led_strip_config_t cfg = {
-                    .strip_gpio_num = pin,
-                    .max_leds = (uint32_t)num_pixels,
-                };
-                led_strip_rmt_config_t rmt = {
-                    .clk_src = RMT_CLK_SRC_DEFAULT,
-                    .resolution_hz = RMT_RESOLUTION,
-                    .mem_block_symbols = 64,
-                    .flags.with_dma = false,
-                };
-                if (led_strip_new_rmt_device(&cfg, &rmt, &s_rgb[i].strip) != ESP_OK) {
-                    luaL_error(L, "led_strip_new_rmt_device resize failed");
-                    return NULL;
-                }
-                s_rgb[i].num_pixels = num_pixels;
-            }
-            return s_rgb[i].strip;
-        }
-    }
-
-    if (s_rgb_count >= MAX_RGB_STRIPS) {
-        luaL_error(L, "rgb: no free strip slot");
-        return NULL;
-    }
-    if (!pin_claim(pin, PIN_RGB)) {
-        luaL_error(L, "rgb: pin %d is already in use", pin);
-        return NULL;
-    }
-
-    led_strip_config_t cfg = {
-        .strip_gpio_num = pin,
-        .max_leds = (uint32_t)num_pixels,
-    };
-    led_strip_rmt_config_t rmt = {
-        .clk_src = RMT_CLK_SRC_DEFAULT,
-        .resolution_hz = RMT_RESOLUTION,
-        .mem_block_symbols = 64,
-        .flags.with_dma = false,
-    };
-
-    led_strip_handle_t strip = NULL;
-    esp_err_t err = led_strip_new_rmt_device(&cfg, &rmt, &strip);
-    if (err != ESP_OK) {
-        pin_release(pin);
-        luaL_error(L, "led_strip_new_rmt_device failed: %s", esp_err_to_name(err));
-        return NULL;
-    }
-
-    s_rgb[s_rgb_count].pin = pin;
-    s_rgb[s_rgb_count].num_pixels = num_pixels;
-    s_rgb[s_rgb_count].strip = strip;
-    s_rgb_count++;
-    return strip;
-}
-
-static int l_rgb_fill(lua_State *L)
-{
-    int pin = (int)luaL_checkinteger(L, 1);
-    int n = (int)luaL_checkinteger(L, 2);
-    int r = (int)luaL_checkinteger(L, 3);
-    int g = (int)luaL_checkinteger(L, 4);
-    int b = (int)luaL_checkinteger(L, 5);
-
-    if (r < 0) r = 0; else if (r > 255) r = 255;
-    if (g < 0) g = 0; else if (g > 255) g = 255;
-    if (b < 0) b = 0; else if (b > 255) b = 255;
-
-    led_strip_handle_t strip = rgb_get_strip(L, pin, n);
-    if (!strip) {
-        return luaL_error(L, "rgb.fill: strip unavailable");
-    }
-
-    for (int i = 0; i < n; i++) {
-        led_strip_set_pixel(strip, (uint32_t)i, (uint32_t)r, (uint32_t)g, (uint32_t)b);
-    }
-    return 0;
-}
-
-static int l_rgb_show(lua_State *L)
-{
-    int pin = (int)luaL_checkinteger(L, 1);
-    int n = (int)luaL_checkinteger(L, 2);
-
-    led_strip_handle_t strip = rgb_get_strip(L, pin, n);
-    if (!strip) {
-        return luaL_error(L, "rgb.show: strip unavailable");
-    }
-
-    esp_err_t err = led_strip_refresh(strip);
-    if (err != ESP_OK) {
-        return luaL_error(L, "led_strip_refresh failed: %s", esp_err_to_name(err));
-    }
-    return 0;
-}
-
-static const luaL_Reg rgb_lib[] = {
-    {"fill", l_rgb_fill},
-    {"show", l_rgb_show},
-    {NULL, NULL},
-};
-#endif
 
 /* ── pwm module ───────────────────────────────────────────── */
 
@@ -409,10 +275,6 @@ void lua_open_gpio_libs(lua_State *L)
 
     luaL_newlib(L, gpio_lib);
     lua_setglobal(L, "gpio");
-#if CONFIG_MIMI_TOOL_RGB_ENABLED
-    luaL_newlib(L, rgb_lib);
-    lua_setglobal(L, "rgb");
-#endif
     luaL_newlib(L, pwm_lib);
     lua_setglobal(L, "pwm");
     luaL_newlib(L, sleep_lib);

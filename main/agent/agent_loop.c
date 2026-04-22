@@ -283,7 +283,7 @@ static cJSON *build_tool_results(const llm_response_t *resp, const mimi_msg_t *m
         char media_type[64] = "image/jpeg";
         const char *image_b64 = tool_output;
 
-        if (strcmp(call->name, "http_request") == 0 || strcmp(call->name, "camera_capture") == 0) {
+        if (strcmp(call->name, "http_request") == 0) {
             cJSON *tool_input_json = cJSON_Parse(tool_input);
             if (tool_input_json) {
                 cJSON *enable_img = cJSON_GetObjectItem(tool_input_json, "enable_image_analysis");

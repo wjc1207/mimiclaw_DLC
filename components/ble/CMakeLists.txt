@@ -2,8 +2,7 @@ set(srcs "dummy.c")
 
 if(CONFIG_MIMI_TOOL_BLE_ENABLED)
     list(APPEND srcs
-        "bthome_listener.c"
-        "tool_ble_listener.c"
+        "lua_modulo_ble.c"
     )
 endif()
 
@@ -16,4 +15,5 @@ idf_component_register(
     REQUIRES
         bt
         esp_timer
+        lua
 )

@@ -1,24 +1,36 @@
-#include "bthome_listener.h"
+#include "lua_modulo_ble.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
 
-#include "mimi_config.h"
-
-#if MIMI_FEATURE_BLE_TOOL && defined(CONFIG_BT_NIMBLE_ENABLED)
-
+#include "esp_err.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include "lauxlib.h"
+#include "mimi_config.h"
+
+#if CONFIG_MIMI_TOOL_BLE_ENABLED && defined(CONFIG_BT_NIMBLE_ENABLED)
 #include "host/ble_gap.h"
 #include "host/ble_hs.h"
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
 
-static const char *TAG = "bthome";
+typedef struct {
+    float temperature_c;
+    float humidity_percent;
+    int battery_percent;
+    bool temperature_valid;
+    bool humidity_valid;
+    bool battery_valid;
+    bool encrypted;
+    char source_addr[18];
+    uint32_t last_seen_ms;
+} thome_reading_t;
 
+static const char *TAG = "lua_ble";
 static const uint16_t BTHOME_UUID_16 = 0xFCD2;
 static const uint8_t AD_TYPE_SERVICE_DATA_16 = 0x16;
 
@@ -166,12 +178,6 @@ static int bthome_gap_event(struct ble_gap_event *event, void *arg)
                     s_latest = parsed;
                     s_has_data = true;
                     portEXIT_CRITICAL(&s_lock);
-
-                    ESP_LOGI(TAG, "BTHome %s -> temp=%.2f(valid=%d) hum=%.2f(valid=%d) bat=%d(valid=%d)",
-                             parsed.source_addr,
-                             parsed.temperature_c, parsed.temperature_valid,
-                             parsed.humidity_percent, parsed.humidity_valid,
-                             parsed.battery_percent, parsed.battery_valid);
                 }
             }
 
@@ -210,7 +216,7 @@ static void bthome_host_task(void *param)
     nimble_port_freertos_deinit();
 }
 
-esp_err_t bthome_listener_start(const char *target_addr)
+static void ble_listener_set_target_addr(const char *target_addr)
 {
     if (target_addr != NULL && target_addr[0] != '\0') {
         snprintf(s_target_addr, sizeof(s_target_addr), "%s", target_addr);
@@ -218,7 +224,10 @@ esp_err_t bthome_listener_start(const char *target_addr)
     } else {
         s_filter_target_addr = false;
     }
+}
 
+static esp_err_t ble_listener_start(void)
+{
     if (s_started) {
         return ESP_OK;
     }
@@ -237,7 +246,7 @@ esp_err_t bthome_listener_start(const char *target_addr)
     return ESP_OK;
 }
 
-bool bthome_listener_get_latest(thome_reading_t *out)
+static bool ble_listener_get_latest(thome_reading_t *out)
 {
     if (out == NULL) {
         return false;
@@ -254,18 +263,171 @@ bool bthome_listener_get_latest(thome_reading_t *out)
     return has;
 }
 
-#else
+static esp_err_t ble_listener_stop(void)
+{
+    if (!s_started) {
+        return ESP_OK;
+    }
 
-esp_err_t bthome_listener_start(const char *target_addr)
+    nimble_port_stop();
+    nimble_port_deinit();
+    s_started = false;
+
+    portENTER_CRITICAL(&s_lock);
+    s_has_data = false;
+    memset(&s_latest, 0, sizeof(s_latest));
+    portEXIT_CRITICAL(&s_lock);
+
+    return ESP_OK;
+}
+#else
+typedef struct {
+    float temperature_c;
+    float humidity_percent;
+    int battery_percent;
+    bool temperature_valid;
+    bool humidity_valid;
+    bool battery_valid;
+    bool encrypted;
+    char source_addr[18];
+    uint32_t last_seen_ms;
+} thome_reading_t;
+
+static void ble_listener_set_target_addr(const char *target_addr)
 {
     (void)target_addr;
+}
+
+static esp_err_t ble_listener_start(void)
+{
     return ESP_ERR_NOT_SUPPORTED;
 }
 
-bool bthome_listener_get_latest(thome_reading_t *out)
+static bool ble_listener_get_latest(thome_reading_t *out)
 {
     (void)out;
     return false;
 }
 
+static esp_err_t ble_listener_stop(void)
+{
+    return ESP_ERR_NOT_SUPPORTED;
+}
 #endif
+
+static int lua_ble_config(lua_State *L)
+{
+    const char *addr = NULL;
+
+    if (!lua_isnoneornil(L, 1)) {
+        if (lua_type(L, 1) == LUA_TTABLE) {
+            lua_getfield(L, 1, "target_addr");
+            if (!lua_isnil(L, -1)) {
+                addr = luaL_checkstring(L, -1);
+            }
+            lua_pop(L, 1);
+        } else {
+            addr = luaL_checkstring(L, 1);
+        }
+    }
+
+    ble_listener_set_target_addr(addr);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+static int lua_ble_start(lua_State *L)
+{
+    if (!lua_isnoneornil(L, 1)) {
+        lua_settop(L, 1);
+        lua_ble_config(L);
+        lua_pop(L, 1);
+    }
+
+    esp_err_t err = ble_listener_start();
+    if (err != ESP_OK) {
+        return luaL_error(L, "ble_listener.start failed: %s", esp_err_to_name(err));
+    }
+
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+static int lua_ble_latest(lua_State *L)
+{
+    thome_reading_t reading = {0};
+    bool has = ble_listener_get_latest(&reading);
+    if (!has) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    uint64_t now_ms = esp_timer_get_time() / 1000ULL;
+    uint64_t age_ms = now_ms >= reading.last_seen_ms ? (now_ms - reading.last_seen_ms) : 0;
+
+    lua_newtable(L);
+    lua_pushstring(L, reading.source_addr);
+    lua_setfield(L, -2, "source_addr");
+
+    lua_pushnumber(L, (lua_Number)age_ms);
+    lua_setfield(L, -2, "age_ms");
+
+    lua_pushnumber(L, reading.temperature_c);
+    lua_setfield(L, -2, "temperature");
+    lua_pushboolean(L, reading.temperature_valid);
+    lua_setfield(L, -2, "temperature_valid");
+
+    lua_pushnumber(L, reading.humidity_percent);
+    lua_setfield(L, -2, "humidity");
+    lua_pushboolean(L, reading.humidity_valid);
+    lua_setfield(L, -2, "humidity_valid");
+
+    lua_pushinteger(L, reading.battery_percent);
+    lua_setfield(L, -2, "battery");
+    lua_pushboolean(L, reading.battery_valid);
+    lua_setfield(L, -2, "battery_valid");
+
+    lua_pushboolean(L, reading.encrypted);
+    lua_setfield(L, -2, "encrypted");
+
+    return 1;
+}
+
+static int lua_ble_stop(lua_State *L)
+{
+    esp_err_t err = ble_listener_stop();
+    if (err != ESP_OK) {
+        return luaL_error(L, "ble_listener.stop failed: %s", esp_err_to_name(err));
+    }
+
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+int luaopen_ble(lua_State *L)
+{
+    static const luaL_Reg funcs[] = {
+        {"config", lua_ble_config},
+        {"start", lua_ble_start},
+        {"stop", lua_ble_stop},
+        {"latest", lua_ble_latest},
+        {NULL, NULL},
+    };
+
+    lua_newtable(L);
+    luaL_setfuncs(L, funcs, 0);
+    return 1;
+}
+
+int luaopen_modulo_ble(lua_State *L)
+{
+    return luaopen_ble(L);
+}
+
+void lua_register_modulo_ble_lib(lua_State *L)
+{
+    luaL_requiref(L, "modulo_ble", luaopen_modulo_ble, 1);
+    lua_setglobal(L, "modulo_ble");
+    luaL_requiref(L, "ble", luaopen_ble, 1);
+    lua_setglobal(L, "ble");
+}

@@ -1,6 +1,18 @@
 #include "lua/lua_runner.h"
 #include "lua/lua_gpio_lib.h"
 
+#if CONFIG_MIMI_TOOL_RGB_ENABLED
+#include "lua_modulo_rgb.h"
+#endif
+
+#if CONFIG_MIMI_TOOL_CAMERA_ENABLED
+#include "lua_modulo_camera.h"
+#endif
+
+#if CONFIG_MIMI_TOOL_BLE_ENABLED
+#include "lua_modulo_ble.h"
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -105,6 +117,18 @@ esp_err_t lua_runner_exec(const char *script_path, int timeout_ms,
 
     luaL_openlibs(L);
     lua_open_gpio_libs(L);
+
+#if CONFIG_MIMI_TOOL_RGB_ENABLED
+    lua_register_modulo_rgb_lib(L);
+#endif
+
+#if CONFIG_MIMI_TOOL_CAMERA_ENABLED
+    lua_register_modulo_camera_lib(L);
+#endif
+
+#if CONFIG_MIMI_TOOL_BLE_ENABLED
+    lua_register_modulo_ble_lib(L);
+#endif
 
     /* Set up capture context */
     capture_ctx_t *ctx = calloc(1, sizeof(capture_ctx_t));

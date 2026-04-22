@@ -24,32 +24,114 @@ local level = gpio.read(4)
 print("Pin 4 level:", level)
 ```
 
-### `rgb` — Addressable RGB LEDs (NeoPixel / WS2812)
+### `modulo_ble` — BLE Home Sensor Listener
+
+> This module is only available when `CONFIG_MIMI_TOOL_BLE_ENABLED` and `CONFIG_BT_NIMBLE_ENABLED` are enabled.
+
+| Function | Signature | Returns | Description |
+|---|---|---|---|
+| `modulo_ble.config` | `modulo_ble.config(target_addr)` or `modulo_ble.config({target_addr = "addr"})` | `boolean` | Configure BLE listener to filter by target MAC address (or accept all devices if address is empty) |
+| `modulo_ble.start` | `modulo_ble.start()` or `modulo_ble.start(target_addr)` | `boolean` | Start BLE scanning for BTHome sensors |
+| `modulo_ble.stop` | `modulo_ble.stop()` | `boolean` | Stop BLE scanning |
+| `modulo_ble.latest` | `modulo_ble.latest()` | `table` or `nil` | Get latest sensor reading from BTHome sensor |
+
+The `latest()` method returns a table with these fields:
+- `temperature`: Temperature in Celsius (number or `nil` if invalid)
+- `humidity`: Humidity in percent (number or `nil` if invalid)
+- `battery`: Battery percentage (0-100 or `nil` if invalid)
+- `source_addr`: MAC address of the sensor
+- `age_ms`: Time since last reading (in milliseconds)
+- `encrypted`: Whether the reading was encrypted (boolean)
+
+```lua
+-- Initialize and start BLE listener
+modulo_ble.start("a4:c1:38:a0:0d:98") -- Target specific sensor
+
+-- Get and print latest reading
+local data = modulo_ble.latest()
+if data then
+    print("Sensor data from", data.source_addr)
+    if data.temperature_valid then
+        print("Temperature:", data.temperature, "°C")
+    end
+    if data.humidity_valid then
+        print("Humidity:", data.humidity, "%")
+    end
+    if data.battery_valid then
+        print("Battery:", data.battery, "%")
+    end
+end
+
+-- Stop listener after 30 seconds
+sleep.ms(30000)
+modulo_ble.stop()
+```
+
+### `modulo_camera` — Camera Capture and Server
+
+> This module is only available when `CONFIG_MIMI_TOOL_CAMERA_ENABLED` is enabled.
+
+| Function | Signature | Returns | Description |
+|---|---|---|---|
+| `modulo_camera.init` | `modulo_camera.init()` | `boolean` | Initialize the camera with default configuration |
+| `modulo_camera.configure` | `modulo_camera.configure(config)` | `boolean` | Configure camera parameters (frame size, quality, pins) |
+| `modulo_camera.capture` | `modulo_camera.capture(encode_base64, save_path)` | `table` or `string` | Capture a photo and optionally encode to base64 or save to file |
+| `modulo_camera.server.start` | `modulo_camera.server.start()` | `boolean` | Start HTTP server (port 18787) for camera capture endpoint |
+| `modulo_camera.server.stop` | `modulo_camera.server.stop()` | `boolean` | Stop the HTTP server |
+
+Camera configuration options:
+- `frame_size`: Index of pre-defined frame size (0-10)
+- `jpeg_quality`: JPEG compression quality (1-63, 1 = best quality)
+- `xclk_freq_hz`: XCLK frequency in Hz (for external oscillator configuration)
+- `pin_pwdn`, `pin_reset`, `pin_xclk`, etc.: Camera GPIO pin assignments
+
+```lua
+-- Configure camera
+modulo_camera.configure({
+    frame_size = 6, -- 640x480 (VGA)
+    jpeg_quality = 10, -- High quality
+    xclk_freq_hz = 12000000 -- External oscillator
+})
+
+-- Initialize and capture a photo (save to /spiffs/photo.jpg)
+local capture = modulo_camera.capture(true, "/spiffs/photo.jpg")
+if capture then
+    print("Captured photo:", capture.file_path)
+    print("Resolution:", capture.width, "x", capture.height)
+    print("JPEG size:", capture.jpeg_bytes, "bytes")
+end
+
+-- Start HTTP server for remote capture (/capture endpoint)
+modulo_camera.server.start()
+sleep.ms(60000) -- Run for 60 seconds
+modulo_camera.server.stop()
+```
+
+### `modulo_rgb` — RGB LED Control
 
 > This module is only available when `CONFIG_MIMI_TOOL_RGB_ENABLED` is enabled.
 
 | Function | Signature | Returns | Description |
 |---|---|---|---|
-| `rgb.fill` | `rgb.fill(pin, num_pixels, r, g, b)` | nothing | Set all pixels to a single RGB colour (0–255 each) |
-| `rgb.show` | `rgb.show(pin, num_pixels)` | nothing | Latch/push the pixel data to the strip |
-
-`rgb.fill` only buffers the colour. You **must** call `rgb.show` to update the
-physical LEDs.
+| `modulo_rgb.set` | `modulo_rgb.set(r, g, b, brightness)` | nothing | Set RGB LED color (0-255 each) with optional brightness (0-255) |
+| `modulo_rgb.set_hex` | `modulo_rgb.set_hex(hex, brightness)` | nothing | Set RGB LED color using hex string (#RRGGBB or RRGGBB) |
+| `modulo_rgb.off` | `modulo_rgb.off()` | nothing | Turn off RGB LED |
 
 ```lua
--- Set 8 NeoPixels on pin 16 to solid red, then display
-rgb.fill(16, 8, 255, 0, 0)
-rgb.show(16, 8)
+-- Set red LED at full brightness
+modulo_rgb.set(255, 0, 0)
 
--- Simple colour sweep
-local colours = {
-    {255, 0,   0},   -- red
-    {0,   255, 0},   -- green
-    {0,   0,   255}, -- blue
-}
-for _, c in ipairs(colours) do
-    rgb.fill(16, 8, c[1], c[2], c[3])
-    rgb.show(16, 8)
+-- Set blue LED at 50% brightness
+modulo_rgb.set(0, 0, 255, 128)
+
+-- Set green LED using hex color
+modulo_rgb.set_hex("#00FF00")
+
+-- Blink purple LED
+while true do
+    modulo_rgb.set(128, 0, 128)
+    sleep.ms(500)
+    modulo_rgb.off()
     sleep.ms(500)
 end
 ```

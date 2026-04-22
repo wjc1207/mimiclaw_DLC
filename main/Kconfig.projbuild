@@ -4,13 +4,13 @@ menu "Swarmclaw Optional Hardware Tools"
         bool "Enable RGB control tool"
         default y
         help
-            Build rgb_control tool support.
+            Build RGB component and register tool_rgb_control/rgb_control Lua libraries.
 
     config MIMI_TOOL_CAMERA_ENABLED
         bool "Enable camera capture tool"
         default n
         help
-            Build camera_capture tool and camera core support.
+            Build camera component and register lua_modulo_camera/camera_core Lua libraries.
 
     config MIMI_CAMERA_SERVER_ENABLED
         bool "Enable camera debug HTTP server"
@@ -23,6 +23,6 @@ menu "Swarmclaw Optional Hardware Tools"
         bool "Enable BLE listener tool"
         default n
         help
-            Build ble_listener tool and BTHome listener support.
+            Build BLE component and register tool_ble_listener/bthome_listener Lua libraries.
 
 endmenu

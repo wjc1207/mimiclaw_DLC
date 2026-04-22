@@ -1,1 +1,1 @@
-/* Empty translation unit to keep component valid when camera features are disabled. */
+

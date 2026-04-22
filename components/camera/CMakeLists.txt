@@ -2,13 +2,8 @@ set(srcs "dummy.c")
 
 if(CONFIG_MIMI_TOOL_CAMERA_ENABLED OR CONFIG_MIMI_CAMERA_SERVER_ENABLED)
     list(APPEND srcs
-        "camera_core.c"
-        "camera_server.c"
+        "lua_modulo_camera.c"
     )
-endif()
-
-if(CONFIG_MIMI_TOOL_CAMERA_ENABLED)
-    list(APPEND srcs "tool_camera_capture.c")
 endif()
 
 idf_component_register(
@@ -21,6 +16,7 @@ idf_component_register(
         esp_http_server
         esp_timer
         json
+        lua
         mbedtls
         esp32-camera
 )

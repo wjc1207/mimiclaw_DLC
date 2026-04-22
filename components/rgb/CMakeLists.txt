@@ -1,7 +1,9 @@
 set(srcs "dummy.c")
 
 if(CONFIG_MIMI_TOOL_RGB_ENABLED)
-    list(APPEND srcs "tool_rgb_control.c")
+    list(APPEND srcs
+        "lua_modulo_rgb.c"
+    )
 endif()
 
 idf_component_register(
@@ -11,4 +13,5 @@ idf_component_register(
     REQUIRES
         led_strip
         json
+        lua
 )
