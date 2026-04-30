@@ -10,7 +10,7 @@
 - Software: lua scripting
 - Use case: control the car via LLM commands, e.g. "move forward", "turn left", etc.
 
-### Example 3: team leader
-- Hardware: ESP32-S3 * 3
-- Software: A2A server + A2A client
-- Use case: one ESP32-S3 acts as the team leader, receiving commands from user and distributing to other two ESP32-S3 (team members) via A2A communication. The team members can execute tasks and report back to the leader, which then reports to the user.
+### Example 3: social buddy
+- Hardware: ESP32-S3 * 2
+- Software: social buddy (ESP-NOW + PSK)
+- Use case: two wearable devices discover each other via ESP-NOW beacons, exchange encrypted profiles, and get an LLM-powered match score with icebreaker.

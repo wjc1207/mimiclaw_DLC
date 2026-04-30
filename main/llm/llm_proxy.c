@@ -645,7 +645,31 @@ static cJSON *convert_messages_openai(const char *system_prompt, cJSON *messages
                     if (tcontent && cJSON_IsString(tcontent)) {
                         cJSON_AddStringToObject(tm, "content", tcontent->valuestring);
                     } else if (tcontent && cJSON_IsArray(tcontent)) {
-                        cJSON_AddItemToObject(tm, "content", cJSON_Duplicate(tcontent, 1));
+                        bool has_image = false;
+                        cJSON *item;
+                        cJSON_ArrayForEach(item, tcontent) {
+                            cJSON *itype = cJSON_GetObjectItem(item, "type");
+                            if (itype && cJSON_IsString(itype) &&
+                                (strcmp(itype->valuestring, "image_url") == 0 ||
+                                 strcmp(itype->valuestring, "image") == 0 ||
+                                 strcmp(itype->valuestring, "input_image") == 0)) {
+                                has_image = true;
+                                break;
+                            }
+                        }
+
+                        if (has_image) {
+                            /* Keep a plain-string role=tool message for strict function-call protocol,
+                             * and forward the real multimodal payload as an extra role=user message. */
+                            cJSON_AddStringToObject(tm, "content", "[image tool result]");
+
+                            cJSON *um = cJSON_CreateObject();
+                            cJSON_AddStringToObject(um, "role", "user");
+                            cJSON_AddItemToObject(um, "content", cJSON_Duplicate(tcontent, 1));
+                            cJSON_AddItemToArray(out, um);
+                        } else {
+                            cJSON_AddItemToObject(tm, "content", cJSON_Duplicate(tcontent, 1));
+                        }
                     } else {
                         cJSON_AddStringToObject(tm, "content", "");
                     }

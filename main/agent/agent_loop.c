@@ -26,6 +26,28 @@ static const char *TAG = "agent";
 /* Last agent loop execution time for context */
 static uint64_t s_last_execution_time = 0;
 
+static bool is_image_path(const char *path)
+{
+    if (!path) {
+        return false;
+    }
+
+    const char *ext = strrchr(path, '.');
+    if (!ext) {
+        return false;
+    }
+
+    if (strcasecmp(ext, ".jpg") == 0 || strcasecmp(ext, ".jpeg") == 0) {
+        return true;
+    }
+    if (strcasecmp(ext, ".png") == 0 || strcasecmp(ext, ".webp") == 0 ||
+        strcasecmp(ext, ".gif") == 0) {
+        return true;
+    }
+
+    return false;
+}
+
 
 /* Build the assistant content array from llm_response_t for the messages history.
  * Returns a cJSON array with text and tool_use blocks. */
@@ -168,87 +190,6 @@ static char *patch_tool_input_with_context(const llm_tool_call_t *call, const mi
     return patched;
 }
 
-static bool should_block_self_a2a_message_send(const llm_tool_call_t *call,
-                                               const mimi_msg_t *msg,
-                                               char *reason,
-                                               size_t reason_size)
-{
-    if (!call || !msg) {
-        return false;
-    }
-
-    if (strcmp(msg->channel, MIMI_CHAN_A2A) != 0) {
-        return false;
-    }
-
-    if (!call->input) {
-        return false;
-    }
-
-    cJSON *tool_input = cJSON_Parse(call->input);
-    if (!tool_input) {
-        return false;
-    }
-
-    bool blocked = false;
-    if (strcmp(call->name, "http_request") == 0) {
-        cJSON *url_item = cJSON_GetObjectItem(tool_input, "url");
-        cJSON *method_item = cJSON_GetObjectItem(tool_input, "method");
-
-        const char *url = cJSON_IsString(url_item) ? url_item->valuestring : "";
-        const char *method = cJSON_IsString(method_item) ? method_item->valuestring : "GET";
-
-        if (strcmp(method, "POST") == 0) {
-            bool local_host = (strstr(url, "://localhost:") != NULL) ||
-                              (strstr(url, "://127.0.0.1:") != NULL);
-            bool a2a_port = strstr(url, ":18788/") != NULL;
-            bool send_path = strstr(url, "/message/send") != NULL;
-            if (local_host && a2a_port && send_path) {
-                blocked = true;
-            }
-        }
-    } else if (strcmp(call->name, "a2a_client") == 0) {
-        cJSON *server_item = cJSON_GetObjectItem(tool_input, "server");
-        if (!cJSON_IsString(server_item) || !server_item->valuestring || server_item->valuestring[0] == '\0') {
-            server_item = cJSON_GetObjectItem(tool_input, "server_url");
-        }
-        if (!cJSON_IsString(server_item) || !server_item->valuestring || server_item->valuestring[0] == '\0') {
-            server_item = cJSON_GetObjectItem(tool_input, "base_url");
-        }
-
-        const char *server = (cJSON_IsString(server_item) && server_item->valuestring) ? server_item->valuestring : NULL;
-        const char *local_ip = wifi_manager_get_ip();
-        bool is_local_target = false;
-
-        if (!server || server[0] == '\0') {
-            is_local_target = true;
-        } else if (strstr(server, "localhost") || strstr(server, "127.0.0.1")) {
-            is_local_target = true;
-        } else if (local_ip && local_ip[0] != '\0' && strstr(server, local_ip)) {
-            is_local_target = true;
-        }
-
-        cJSON *action_item = cJSON_GetObjectItem(tool_input, "action");
-        const char *action = cJSON_IsString(action_item) ? action_item->valuestring : "";
-        if (strcmp(action, "send") == 0 && is_local_target) {
-            blocked = true;
-        }
-    }
-
-    if (blocked && reason && reason_size > 0) {
-        if (strcmp(call->name, "http_request") == 0) {
-            snprintf(reason, reason_size,
-                     "blocked self A2A loop: http_request POST /message/send in A2A session");
-        } else {
-            snprintf(reason, reason_size,
-                     "blocked self A2A loop: a2a_client action=send to local A2A server in A2A session");
-        }
-    }
-
-    cJSON_Delete(tool_input);
-    return blocked;
-}
-
 /* Build the user message with tool_result blocks */
 static cJSON *build_tool_results(const llm_response_t *resp, const mimi_msg_t *msg,
                                  char *tool_output, size_t tool_output_size)
@@ -266,14 +207,7 @@ static cJSON *build_tool_results(const llm_response_t *resp, const mimi_msg_t *m
 
         /* Execute tool */
         tool_output[0] = '\0';
-        char block_reason[192] = {0};
-        if (should_block_self_a2a_message_send(call, msg, block_reason, sizeof(block_reason))) {
-            ESP_LOGW(TAG, "%s", block_reason);
-            snprintf(tool_output, tool_output_size,
-                     "Error: self-loop protection active; do not call local A2A message/send from an A2A session");
-        } else {
-            tool_registry_execute(call->name, tool_input, tool_output, tool_output_size);
-        }
+        tool_registry_execute(call->name, tool_input, tool_output, tool_output_size);
         free(patched_input);
 
         ESP_LOGI(TAG, "Tool %s result: %d bytes", call->name, (int)strlen(tool_output));
@@ -290,6 +224,24 @@ static cJSON *build_tool_results(const llm_response_t *resp, const mimi_msg_t *m
                 if (cJSON_IsTrue(enable_img)) {
                     is_image_result = true;
                     /* Output format: "<media_type>\n<base64_data>" */
+                    char *newline = strchr(tool_output, '\n');
+                    if (newline && (size_t)(newline - tool_output) < sizeof(media_type)) {
+                        size_t mt_len = newline - tool_output;
+                        memcpy(media_type, tool_output, mt_len);
+                        media_type[mt_len] = '\0';
+                        image_b64 = newline + 1;
+                    }
+                }
+                cJSON_Delete(tool_input_json);
+            }
+        } else if (strcmp(call->name, "read_file") == 0) {
+            cJSON *tool_input_json = cJSON_Parse(tool_input);
+            if (tool_input_json) {
+                cJSON *path_item = cJSON_GetObjectItem(tool_input_json, "path");
+                const char *path = cJSON_IsString(path_item) ? path_item->valuestring : NULL;
+                if (is_image_path(path) && strncmp(tool_output, "Error:", 6) != 0) {
+                    is_image_result = true;
+                    /* Output format from read_file(image): "<media_type>\n<base64_data>" */
                     char *newline = strchr(tool_output, '\n');
                     if (newline && (size_t)(newline - tool_output) < sizeof(media_type)) {
                         size_t mt_len = newline - tool_output;
@@ -415,7 +367,7 @@ static void agent_loop_task(void *arg)
         while (iteration < MIMI_AGENT_MAX_TOOL_ITER) {
             /* Send "working" indicator before each API call */
 #if MIMI_AGENT_SEND_WORKING_STATUS
-            if (!sent_working_status && strcmp(msg.channel, MIMI_CHAN_SYSTEM) != 0 && strcmp(msg.channel, MIMI_CHAN_A2A) != 0) {
+            if (!sent_working_status && strcmp(msg.channel, MIMI_CHAN_SYSTEM) != 0) {
                 mimi_msg_t status = {0};
                 strncpy(status.channel, msg.channel, sizeof(status.channel) - 1);
                 strncpy(status.chat_id, msg.chat_id, sizeof(status.chat_id) - 1);

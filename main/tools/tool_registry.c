@@ -4,7 +4,7 @@
 #include "tools/tool_files.h"
 #include "tools/tool_cron.h"
 #include "tools/tool_http_request.h"
-#include "tools/tool_a2a_client.h"
+
 #include "tools/tool_script.h"
 #include "sdkconfig.h"
 
@@ -199,24 +199,6 @@ esp_err_t tool_registry_init(void)
         .execute = tool_http_request_execute,
     };
     register_tool(&hr);
-
-    /* Register a2a_client */
-    mimi_tool_t ac = {
-        .name = "a2a_client",
-        .description = "Call an A2A server with auto-filled device client_id. Supports actions: send/get/cancel/agent_card. Optional server/server_url/base_url overrides the default local device.",
-        .input_schema_json =
-            "{\"type\":\"object\"," 
-            "\"properties\":{"
-            "\"action\":{\"type\":\"string\",\"description\":\"send | get | cancel | agent_card\"},"
-            "\"message\":{\"type\":\"string\",\"description\":\"Message text, required for action=send\"},"
-            "\"task_id\":{\"type\":\"string\",\"description\":\"Task ID, required for action=get/cancel\"},"
-            "\"server\":{\"type\":\"string\",\"description\":\"Optional server host or base URL. Examples: 192.168.3.40, 192.168.3.40:18788, http://192.168.3.40:18788\"},"
-            "\"timeout_ms\":{\"type\":\"integer\",\"description\":\"Optional HTTP timeout in ms\"}"
-            "},"
-            "\"required\":[\"action\"]}",
-        .execute = tool_a2a_client_execute,
-    };
-    register_tool(&ac);
 
     /* Register script_write */
     mimi_tool_t sw = {

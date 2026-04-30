@@ -8,3 +8,4 @@ dependencies:
   lua:
     git: https://github.com/KamranAghlami/idf_component_lua.git
   espressif/esp_websocket_client: '*'
+  espressif/esp-now: '*'

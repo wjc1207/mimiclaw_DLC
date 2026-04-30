@@ -73,27 +73,32 @@ modulo_ble.stop()
 
 | Function | Signature | Returns | Description |
 |---|---|---|---|
-| `modulo_camera.init` | `modulo_camera.init()` | `boolean` | Initialize the camera with default configuration |
+| `modulo_camera.init` | `modulo_camera.init()` or `modulo_camera.init(config)` | `boolean` | Initialize camera; optional config supports frame size, quality, clock, and pins |
 | `modulo_camera.configure` | `modulo_camera.configure(config)` | `boolean` | Configure camera parameters (frame size, quality, pins) |
-| `modulo_camera.capture` | `modulo_camera.capture(encode_base64, save_path)` | `table` or `string` | Capture a photo and optionally encode to base64 or save to file |
+| `modulo_camera.capture` | `modulo_camera.capture(encode_base64, save_path)` or `modulo_camera.capture(save_path)` | `table` or `string` | Capture a photo, save to file, and optionally return base64 payload |
 | `modulo_camera.server.start` | `modulo_camera.server.start()` | `boolean` | Start HTTP server (port 18787) for camera capture endpoint |
 | `modulo_camera.server.stop` | `modulo_camera.server.stop()` | `boolean` | Stop the HTTP server |
 
 Camera configuration options:
-- `frame_size`: Index of pre-defined frame size (0-10)
+- `frame_size`: Index of pre-defined frame size (0-11)
 - `jpeg_quality`: JPEG compression quality (1-63, 1 = best quality)
 - `xclk_freq_hz`: XCLK frequency in Hz (for external oscillator configuration)
 - `pin_pwdn`, `pin_reset`, `pin_xclk`, etc.: Camera GPIO pin assignments
 
+Notes:
+- If camera is already initialized, call `modulo_camera.deinit()` before reconfiguring via `modulo_camera.init(config)`.
+- `modulo_camera.capture(save_path)` is treated as path-only shorthand and keeps `encode_base64 = true`.
+- The module is also exposed as `camera` (alias of `modulo_camera`).
+
 ```lua
--- Configure camera
-modulo_camera.configure({
-    frame_size = 6, -- 640x480 (VGA)
+-- Initialize with custom config
+modulo_camera.init({
+    frame_size = 10, -- 640x480 (VGA)
     jpeg_quality = 10, -- High quality
     xclk_freq_hz = 12000000 -- External oscillator
 })
 
--- Initialize and capture a photo (save to /spiffs/photo.jpg)
+-- Capture a photo (save to /spiffs/photo.jpg)
 local capture = modulo_camera.capture(true, "/spiffs/photo.jpg")
 if capture then
     print("Captured photo:", capture.file_path)
@@ -101,10 +106,16 @@ if capture then
     print("JPEG size:", capture.jpeg_bytes, "bytes")
 end
 
+-- Path-only shorthand (equivalent save path, base64 enabled)
+local capture2 = modulo_camera.capture("/spiffs/photo2.jpg")
+
 -- Start HTTP server for remote capture (/capture endpoint)
 modulo_camera.server.start()
 sleep.ms(60000) -- Run for 60 seconds
 modulo_camera.server.stop()
+
+-- Optional cleanup
+modulo_camera.deinit()
 ```
 
 ### `modulo_rgb` — RGB LED Control

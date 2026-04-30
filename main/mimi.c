@@ -15,7 +15,7 @@
 #include "wifi/wifi_manager.h"
 #include "channels/telegram/telegram_bot.h"
 #include "channels/feishu/feishu_bot.h"
-#include "channels/a2a/a2a_server.h"
+
 #include "llm/llm_proxy.h"
 #include "agent/agent_loop.h"
 #include "memory/memory_store.h"
@@ -28,6 +28,7 @@
 #include "heartbeat/heartbeat.h"
 #include "skills/skill_loader.h"
 #include "onboard/wifi_onboard.h"
+#include "buddy/buddy.h"
 
 #include "sdkconfig.h"
 
@@ -102,11 +103,6 @@ static void outbound_dispatch_task(void *arg)
             if (ws_err != ESP_OK) {
                 ESP_LOGW(TAG, "WS send failed for %s: %s", msg.chat_id, esp_err_to_name(ws_err));
             }
-        } else if (strcmp(msg.channel, MIMI_CHAN_A2A) == 0) {
-            esp_err_t a2a_err = a2a_server_handle_agent_reply(msg.chat_id, msg.payload.text);
-            if (a2a_err != ESP_OK) {
-                ESP_LOGW(TAG, "A2A reply mapping failed for %s: %s", msg.chat_id, esp_err_to_name(a2a_err));
-            }
         } else if (strcmp(msg.channel, MIMI_CHAN_SYSTEM) == 0) {
             ESP_LOGI(TAG, "System message [%s]: %.128s", msg.chat_id, msg.payload.text);
         } else {
@@ -157,6 +153,10 @@ void app_main(void)
     ESP_ERROR_CHECK(heartbeat_init());
     ESP_ERROR_CHECK(agent_loop_init());
 
+#if MIMI_FEATURE_BUDDY_ENABLED
+    ESP_ERROR_CHECK(buddy_init());
+#endif
+
     /* Start Serial CLI first (works without WiFi) */
     ESP_ERROR_CHECK(serial_cli_init());
 
@@ -204,10 +204,13 @@ void app_main(void)
         if (mimi_feature_feishu_bot_enabled()) {
             ESP_ERROR_CHECK(feishu_bot_start());
         }
-        ESP_ERROR_CHECK(a2a_server_start());
         cron_service_start();
         heartbeat_start();
         ESP_ERROR_CHECK(ws_server_start());
+
+#if MIMI_FEATURE_BUDDY_ENABLED
+        ESP_ERROR_CHECK(buddy_start());
+#endif
 
         ESP_LOGI(TAG, "All services started!");
     }

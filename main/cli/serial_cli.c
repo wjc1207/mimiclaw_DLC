@@ -13,6 +13,7 @@
 #include "cron/cron_service.h"
 #include "heartbeat/heartbeat.h"
 #include "skills/skill_loader.h"
+#include "buddy/buddy.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -656,10 +657,6 @@ static int cmd_config_show(int argc, char **argv)
     
     /* Features */
     printf("\n=== Features ===\n");
-    print_config_bool("RGB Control",   MIMI_NVS_FEATURE, MIMI_NVS_KEY_RGB_CONTROL,     MIMI_FEATURE_RGB_CONTROL);
-    print_config_bool("Camera Tool",   MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_TOOL,     MIMI_FEATURE_CAMERA_TOOL);
-    print_config_bool("Camera Server", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_SERVER,   MIMI_FEATURE_CAMERA_SERVER);
-    print_config_bool("BLE Tool",      MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TOOL,        MIMI_FEATURE_BLE_TOOL);
     print_config_bool("Telegram Bot",  MIMI_NVS_FEATURE, MIMI_NVS_KEY_TELEGRAM_BOT,    MIMI_FEATURE_TELEGRAM_BOT);
     print_config_bool("Feishu Bot",    MIMI_NVS_FEATURE, MIMI_NVS_KEY_FEISHU_BOT,      MIMI_FEATURE_FEISHU_BOT);
 
@@ -754,20 +751,12 @@ static int cmd_set_feature(int argc, char **argv)
 
     esp_err_t err = ESP_OK;
 
-    if (strcmp(feature, "rgb_control") == 0) {
-        err = mimi_set_feature_rgb_control(value);
-    } else if (strcmp(feature, "camera_tool") == 0) {
-        err = mimi_set_feature_camera_tool(value);
-    } else if (strcmp(feature, "camera_server") == 0) {
-        err = mimi_set_feature_camera_server(value);
-    } else if (strcmp(feature, "ble_tool") == 0) {
-        err = mimi_set_feature_ble_tool(value);
-    } else if (strcmp(feature, "telegram_bot") == 0) {
+    if (strcmp(feature, "telegram_bot") == 0) {
         err = mimi_set_feature_telegram_bot(value);
     } else if (strcmp(feature, "feishu_bot") == 0) {
         err = mimi_set_feature_feishu_bot(value);
     } else {
-        printf("Unknown feature: %s. Use: rgb_control, camera_tool, camera_server, ble_tool, telegram_bot, feishu_bot\n", feature);
+        printf("Unknown feature: %s. Use: telegram_bot, feishu_bot\n", feature);
         return 1;
     }
 
@@ -804,6 +793,77 @@ static int cmd_set_ble_target_addr(int argc, char **argv)
     }
 
     return (err == ESP_OK) ? 0 : 1;
+}
+
+/* --- buddy_status command --- */
+static int cmd_buddy_status(int argc, char **argv)
+{
+    const buddy_identity_t *id = buddy_identity_get();
+    printf("=== Buddy System Status ===\n");
+    printf("Device ID:    %s\n", id->device_id);
+
+    buddy_profile_t profile;
+    if (buddy_profile_get(&profile) == ESP_OK) {
+        printf("\n--- Profile ---\n");
+        printf("Name:   %s\n", profile.display_name);
+        printf("Bio:    %s\n", profile.bio);
+        printf("Tags:   %s\n", profile.tags);
+        printf("Vibe:   %s\n", profile.vibe);
+        printf("OpenTo: %s\n", profile.open_to);
+        printf("Phone:  %s\n", profile.contact_phone[0] ? profile.contact_phone : "(not set)");
+        printf("Email:  %s\n", profile.contact_email[0] ? profile.contact_email : "(not set)");
+        printf("Hash:   %02x%02x%02x%02x%02x%02x%02x%02x\n",
+               profile.profile_hash[0], profile.profile_hash[1],
+               profile.profile_hash[2], profile.profile_hash[3],
+               profile.profile_hash[4], profile.profile_hash[5],
+               profile.profile_hash[6], profile.profile_hash[7]);
+    }
+
+    printf("Privacy: %s\n",
+           buddy_privacy_get() == BUDDY_MODE_PUBLIC ? "PUBLIC" : "PRIVATE");
+
+    buddy_contact_record_t recs[10];
+    size_t count = 0;
+    buddy_contacts_list(recs, 10, &count);
+    printf("\nContacts: %d\n", (int)count);
+    for (size_t i = 0; i < count && i < 5; i++) {
+        printf("  %s - %s (met %lld, score=%.2f, synced=%s)\n",
+               recs[i].peer_id, recs[i].display_name,
+               (long long)recs[i].last_met_unix,
+               recs[i].match_score,
+               recs[i].cloud_synced ? "yes" : "no");
+    }
+    if (count > 5) printf("  ...and %d more\n", (int)(count - 5));
+    printf("===========================\n");
+    return 0;
+}
+
+/* --- buddy_privacy command --- */
+static struct {
+    struct arg_str *mode;
+    struct arg_end *end;
+} buddy_privacy_args;
+
+static int cmd_buddy_privacy(int argc, char **argv)
+{
+    int nerrors = arg_parse(argc, argv, (void **)&buddy_privacy_args);
+    if (nerrors != 0) {
+        arg_print_errors(stderr, buddy_privacy_args.end, argv[0]);
+        return 1;
+    }
+
+    const char *mode = buddy_privacy_args.mode->sval[0];
+    if (strcmp(mode, "public") == 0) {
+        buddy_privacy_set(BUDDY_MODE_PUBLIC);
+        printf("Buddy privacy: PUBLIC (broadcasting)\n");
+    } else if (strcmp(mode, "private") == 0) {
+        buddy_privacy_set(BUDDY_MODE_PRIVATE);
+        printf("Buddy privacy: PRIVATE (silent)\n");
+    } else {
+        printf("Invalid mode. Use 'public' or 'private'.\n");
+        return 1;
+    }
+    return 0;
 }
 
 /* --- restart command --- */
@@ -1106,7 +1166,7 @@ esp_err_t serial_cli_init(void)
     esp_console_cmd_register(&tool_exec_cmd);
 
     /* set_feature */
-    set_feature_args.feature = arg_str1(NULL, NULL, "<feature>", "Feature name (rgb_control|camera_tool|camera_server|ble_tool|telegram_bot|feishu_bot)");
+    set_feature_args.feature = arg_str1(NULL, NULL, "<feature>", "Feature name (telegram_bot|feishu_bot)");
     set_feature_args.value = arg_str1(NULL, NULL, "<value>", "Value (true|false|1|0)");
     set_feature_args.end = arg_end(2);
     esp_console_cmd_t set_feature_cmd = {
@@ -1127,6 +1187,25 @@ esp_err_t serial_cli_init(void)
         .argtable = &ble_addr_args,
     };
     esp_console_cmd_register(&set_ble_addr_cmd);
+
+    /* buddy_status */
+    esp_console_cmd_t buddy_status_cmd = {
+        .command = "buddy_status",
+        .help = "Show buddy system status (identity, profile, contacts)",
+        .func = &cmd_buddy_status,
+    };
+    esp_console_cmd_register(&buddy_status_cmd);
+
+    /* buddy_privacy */
+    buddy_privacy_args.mode = arg_str1(NULL, NULL, "<mode>", "public or private");
+    buddy_privacy_args.end = arg_end(1);
+    esp_console_cmd_t buddy_privacy_cmd = {
+        .command = "buddy_privacy",
+        .help = "Set buddy privacy mode (public|private)",
+        .func = &cmd_buddy_privacy,
+        .argtable = &buddy_privacy_args,
+    };
+    esp_console_cmd_register(&buddy_privacy_cmd);
 
     /* restart */
     esp_console_cmd_t restart_cmd = {

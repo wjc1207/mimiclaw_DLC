@@ -5,37 +5,6 @@
 /* MimiClaw Global Configuration */
 
 /* Optional feature toggles */
-#ifndef MIMI_FEATURE_RGB_CONTROL
-#if CONFIG_MIMI_TOOL_RGB_ENABLED
-#define MIMI_FEATURE_RGB_CONTROL 1
-#else
-#define MIMI_FEATURE_RGB_CONTROL 0
-#endif
-#endif
-
-#ifndef MIMI_FEATURE_CAMERA_TOOL
-#if CONFIG_MIMI_TOOL_CAMERA_ENABLED
-#define MIMI_FEATURE_CAMERA_TOOL 1
-#else
-#define MIMI_FEATURE_CAMERA_TOOL 0
-#endif
-#endif
-
-#ifndef MIMI_FEATURE_BLE_TOOL
-#if CONFIG_MIMI_TOOL_BLE_ENABLED
-#define MIMI_FEATURE_BLE_TOOL 1
-#else
-#define MIMI_FEATURE_BLE_TOOL 0
-#endif
-#endif
-
-#ifndef MIMI_FEATURE_CAMERA_SERVER
-#if CONFIG_MIMI_CAMERA_SERVER_ENABLED
-#define MIMI_FEATURE_CAMERA_SERVER 1
-#else
-#define MIMI_FEATURE_CAMERA_SERVER 0
-#endif
-#endif
 
 #ifndef MIMI_BLE_TARGET_ADDR
 #define MIMI_BLE_TARGET_ADDR "a4:c1:38:a0:0d:98"
@@ -190,12 +159,6 @@
 #define MIMI_WS_PORT                 18789
 #define MIMI_WS_MAX_CLIENTS          4
 
-/* A2A Server */
-#define MIMI_A2A_PORT                18788
-#define MIMI_A2A_STACK               (8 * 1024)
-#define MIMI_A2A_MAX_TASKS           32
-#define MIMI_A2A_SYNC_TIMEOUT_MS     5000
-
 /* Camera Debug Server */
 #define MIMI_CAMERA_SERVER_PORT      18787
 
@@ -214,10 +177,6 @@
 #define MIMI_NVS_FEATURE             "feature_config"
 
 /* NVS Keys for Features */
-#define MIMI_NVS_KEY_RGB_CONTROL     "rgb_control"
-#define MIMI_NVS_KEY_CAMERA_TOOL     "camera_tool"
-#define MIMI_NVS_KEY_CAMERA_SERVER   "camera_server"
-#define MIMI_NVS_KEY_BLE_TOOL        "ble_tool"
 #define MIMI_NVS_KEY_BLE_TARGET_ADDR "ble_target_addr"
 #define MIMI_NVS_KEY_TELEGRAM_BOT    "telegram_bot"
 #define MIMI_NVS_KEY_FEISHU_BOT      "feishu_bot"
@@ -261,3 +220,13 @@
 #define MIMI_ONBOARD_HTTP_PORT    80
 #define MIMI_ONBOARD_DNS_STACK    (4 * 1024)
 #define MIMI_ONBOARD_MAX_SCAN     20
+
+/* Buddy Social System */
+#define MIMI_FEATURE_BUDDY_ENABLED  1
+#define MIMI_BUDDY_CONTACT_STACK    (8 * 1024)
+#define MIMI_BUDDY_CONTACT_PRIO     5
+#define MIMI_BUDDY_CONTACT_CORE     1
+#define MIMI_BUDDY_BEACON_STACK     (4 * 1024)
+#define MIMI_BUDDY_BEACON_PRIO      4
+#define MIMI_BUDDY_BEACON_CORE      0
+#define MIMI_BUDDY_NVS_NS           "buddy"

@@ -4,7 +4,7 @@ set(srcs
     "wifi/wifi_manager.c"
     "channels/telegram/telegram_bot.c"
     "channels/feishu/feishu_bot.c"
-    "channels/a2a/a2a_server.c"
+
     "llm/llm_proxy.c"
     "agent/agent_loop.c"
     "agent/context_builder.c"
@@ -22,16 +22,20 @@ set(srcs
     "tools/tool_get_time.c"
     "tools/tool_files.c"
     "tools/tool_http_request.c"
-    "tools/tool_a2a_client.c"
+
     "tools/tool_script.c"
     "lua/lua_runner.c"
     "lua/lua_gpio_lib.c"
     "skills/skill_loader.c"
     "onboard/wifi_onboard.c"
+    "buddy/buddy.c"
+    "buddy/buddy_profile.c"
+    "buddy/buddy_proximity.c"
+    "buddy/buddy_crypto.c"
+    "buddy/buddy_contacts.c"
+    "buddy/buddy_espnow.c"
+    "buddy/buddy_agent.c"
 )
-
-if(CONFIG_MIMI_TOOL_RGB_ENABLED)
-endif()
 
 idf_component_register(
     SRCS ${srcs}

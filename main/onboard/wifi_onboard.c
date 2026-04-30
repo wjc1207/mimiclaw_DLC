@@ -2,6 +2,7 @@
 #include "onboard_html.h"
 #include "mimi_config.h"
 #include "wifi/wifi_manager.h"
+#include "buddy/buddy.h"
 #include "sdkconfig.h"
 
 #include <stdint.h>
@@ -23,30 +24,6 @@
 static const char *TAG = "onboard";
 static httpd_handle_t s_server = NULL;
 static bool s_captive_mode = false;
-
-#if defined(CONFIG_MIMI_TOOL_RGB_ENABLED)
-#define MIMI_TOOL_RGB_AVAILABLE CONFIG_MIMI_TOOL_RGB_ENABLED
-#else
-#define MIMI_TOOL_RGB_AVAILABLE 0
-#endif
-
-#if defined(CONFIG_MIMI_TOOL_CAMERA_ENABLED)
-#define MIMI_TOOL_CAMERA_AVAILABLE CONFIG_MIMI_TOOL_CAMERA_ENABLED
-#else
-#define MIMI_TOOL_CAMERA_AVAILABLE 0
-#endif
-
-#if defined(CONFIG_MIMI_CAMERA_SERVER_ENABLED)
-#define MIMI_CAMERA_SERVER_AVAILABLE CONFIG_MIMI_CAMERA_SERVER_ENABLED
-#else
-#define MIMI_CAMERA_SERVER_AVAILABLE 0
-#endif
-
-#if defined(CONFIG_MIMI_TOOL_BLE_ENABLED)
-#define MIMI_TOOL_BLE_AVAILABLE CONFIG_MIMI_TOOL_BLE_ENABLED
-#else
-#define MIMI_TOOL_BLE_AVAILABLE 0
-#endif
 
 static void json_add_effective_config(cJSON *root, const char *json_key,
                                       const char *ns, const char *nvs_key,
@@ -179,22 +156,6 @@ static esp_err_t set_feature_str(const char *nvs_key, const char *value)
     return err;
 }
 
-static int get_feature_i32(const char *nvs_key, int default_val)
-{
-    int value = default_val;
-
-    nvs_handle_t nvs;
-    if (nvs_open(MIMI_NVS_FEATURE, NVS_READONLY, &nvs) == ESP_OK) {
-        int32_t tmp = 0;
-        if (nvs_get_i32(nvs, nvs_key, &tmp) == ESP_OK) {
-            value = (int)tmp;
-        }
-        nvs_close(nvs);
-    }
-
-    return value;
-}
-
 static esp_err_t set_feature_i32(const char *nvs_key, int value)
 {
     nvs_handle_t nvs;
@@ -210,38 +171,6 @@ static esp_err_t set_feature_i32(const char *nvs_key, int value)
 
     nvs_close(nvs);
     return err;
-}
-
-bool mimi_feature_rgb_control_enabled(void)
-{
-#if !CONFIG_MIMI_TOOL_RGB_ENABLED
-    return false;
-#endif
-    return get_feature_bool(MIMI_NVS_KEY_RGB_CONTROL, MIMI_FEATURE_RGB_CONTROL);
-}
-
-bool mimi_feature_camera_tool_enabled(void)
-{
-#if !CONFIG_MIMI_TOOL_CAMERA_ENABLED
-    return false;
-#endif
-    return get_feature_bool(MIMI_NVS_KEY_CAMERA_TOOL, MIMI_FEATURE_CAMERA_TOOL);
-}
-
-bool mimi_feature_camera_server_enabled(void)
-{
-#if !CONFIG_MIMI_CAMERA_SERVER_ENABLED
-    return false;
-#endif
-    return mimi_feature_camera_tool_enabled() && get_feature_bool(MIMI_NVS_KEY_CAMERA_SERVER, MIMI_FEATURE_CAMERA_SERVER);
-}
-
-bool mimi_feature_ble_tool_enabled(void)
-{
-#if !CONFIG_MIMI_TOOL_BLE_ENABLED
-    return false;
-#endif
-    return get_feature_bool(MIMI_NVS_KEY_BLE_TOOL, MIMI_FEATURE_BLE_TOOL);
 }
 
 bool mimi_feature_telegram_bot_enabled(void)
@@ -262,26 +191,6 @@ const char *mimi_ble_target_addr(void)
 esp_err_t mimi_set_cam_xclk_freq(int freq)
 {
     return set_feature_i32(MIMI_NVS_KEY_CAM_XCLK_FREQ, freq);
-}
-
-esp_err_t mimi_set_feature_rgb_control(bool enabled)
-{
-    return set_feature_bool(MIMI_NVS_KEY_RGB_CONTROL, enabled);
-}
-
-esp_err_t mimi_set_feature_camera_tool(bool enabled)
-{
-    return set_feature_bool(MIMI_NVS_KEY_CAMERA_TOOL, enabled);
-}
-
-esp_err_t mimi_set_feature_camera_server(bool enabled)
-{
-    return set_feature_bool(MIMI_NVS_KEY_CAMERA_SERVER, enabled);
-}
-
-esp_err_t mimi_set_feature_ble_tool(bool enabled)
-{
-    return set_feature_bool(MIMI_NVS_KEY_BLE_TOOL, enabled);
 }
 
 esp_err_t mimi_set_feature_telegram_bot(bool enabled)
@@ -469,18 +378,23 @@ static esp_err_t http_get_config(httpd_req_t *req)
     json_add_effective_config(root, "tavily_key", MIMI_NVS_SEARCH, MIMI_NVS_KEY_TAVILY_KEY, MIMI_SECRET_TAVILY_KEY);
 
     /* Feature toggles */
-    json_add_effective_config_bool(root, "rgb_control", MIMI_NVS_FEATURE, MIMI_NVS_KEY_RGB_CONTROL, MIMI_FEATURE_RGB_CONTROL);
-    json_add_effective_config_bool(root, "camera_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_TOOL, MIMI_FEATURE_CAMERA_TOOL);
-    json_add_effective_config_bool(root, "camera_server", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_SERVER, MIMI_FEATURE_CAMERA_SERVER);
-    json_add_effective_config_bool(root, "ble_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TOOL, MIMI_FEATURE_BLE_TOOL);
     json_add_effective_config_bool(root, "telegram_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_TELEGRAM_BOT, MIMI_FEATURE_TELEGRAM_BOT);
     json_add_effective_config_bool(root, "feishu_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_FEISHU_BOT, MIMI_FEATURE_FEISHU_BOT);
 
-    /* Compile-time availability for onboard UI (layer 1) */
-    cJSON_AddBoolToObject(root, "rgb_control_available", MIMI_TOOL_RGB_AVAILABLE);
-    cJSON_AddBoolToObject(root, "camera_tool_available", MIMI_TOOL_CAMERA_AVAILABLE);
-    cJSON_AddBoolToObject(root, "camera_server_available", MIMI_CAMERA_SERVER_AVAILABLE);
-    cJSON_AddBoolToObject(root, "ble_tool_available", MIMI_TOOL_BLE_AVAILABLE);
+    /* Buddy profile */
+    buddy_profile_t bp;
+    esp_err_t bp_err = buddy_profile_get(&bp);
+    if (bp_err == ESP_OK) {
+        cJSON_AddStringToObject(root, "buddy_name", bp.display_name);
+        cJSON_AddStringToObject(root, "buddy_bio", bp.bio);
+        cJSON_AddStringToObject(root, "buddy_tags", bp.tags);
+        cJSON_AddStringToObject(root, "buddy_vibe", bp.vibe);
+        cJSON_AddStringToObject(root, "buddy_open_to", bp.open_to);
+        cJSON_AddStringToObject(root, "buddy_phone", bp.contact_phone);
+        cJSON_AddStringToObject(root, "buddy_email", bp.contact_email);
+    }
+    cJSON_AddBoolToObject(root, "buddy_privacy",
+                          buddy_privacy_get() == BUDDY_MODE_PRIVATE);
 
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
@@ -662,12 +576,43 @@ static esp_err_t http_post_save(httpd_req_t *req)
     nvs_sync_field(root, "tavily_key", MIMI_NVS_SEARCH, MIMI_NVS_KEY_TAVILY_KEY);
 
     /* Feature toggles */
-    nvs_sync_bool_field(root, "rgb_control", MIMI_NVS_FEATURE, MIMI_NVS_KEY_RGB_CONTROL);
-    nvs_sync_bool_field(root, "camera_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_TOOL);
-    nvs_sync_bool_field(root, "camera_server", MIMI_NVS_FEATURE, MIMI_NVS_KEY_CAMERA_SERVER);
-    nvs_sync_bool_field(root, "ble_tool", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BLE_TOOL);
     nvs_sync_bool_field(root, "telegram_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_TELEGRAM_BOT);
     nvs_sync_bool_field(root, "feishu_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_FEISHU_BOT);
+
+    /* Buddy profile */
+    {
+        buddy_profile_t bp;
+        buddy_profile_get(&bp);
+
+        cJSON *item;
+        #define SYNC_BUDDY_FIELD(json_key, dest, maxlen) \
+            item = cJSON_GetObjectItem(root, json_key); \
+            if (item && cJSON_IsString(item)) { \
+                snprintf(dest, maxlen, "%s", item->valuestring); \
+            }
+
+        SYNC_BUDDY_FIELD("buddy_name", bp.display_name, sizeof(bp.display_name));
+        SYNC_BUDDY_FIELD("buddy_bio", bp.bio, sizeof(bp.bio));
+        SYNC_BUDDY_FIELD("buddy_tags", bp.tags, sizeof(bp.tags));
+        SYNC_BUDDY_FIELD("buddy_vibe", bp.vibe, sizeof(bp.vibe));
+        SYNC_BUDDY_FIELD("buddy_open_to", bp.open_to, sizeof(bp.open_to));
+        SYNC_BUDDY_FIELD("buddy_phone", bp.contact_phone, sizeof(bp.contact_phone));
+        SYNC_BUDDY_FIELD("buddy_email", bp.contact_email, sizeof(bp.contact_email));
+
+        buddy_profile_set(&bp);
+
+        /* Privacy mode */
+        cJSON *priv = cJSON_GetObjectItem(root, "buddy_privacy");
+        if (priv) {
+            bool is_private = false;
+            if (cJSON_IsBool(priv)) is_private = priv->valueint;
+            else if (cJSON_IsString(priv)) {
+                is_private = (strcmp(priv->valuestring, "true") == 0 ||
+                              strcmp(priv->valuestring, "1") == 0);
+            }
+            buddy_privacy_set(is_private ? BUDDY_MODE_PRIVATE : BUDDY_MODE_PUBLIC);
+        }
+    }
 
     cJSON_Delete(root);
 

@@ -141,7 +141,7 @@ see [features.md](features.md) for detailed feature list and roadmap.
 |----------|-------|
 | **Cron** | run task at given unix timestamp or at given interval | 
 | **File** | add, remove, edit and list files | 
-| **A2A Client** | call A2A server; supports `send/get/cancel/agent_card` |
+
 | **Device Control (RGB)** | immediate WS2812 RGB control on GPIO48 (`set/off/status`) (optional) |
 | **HTTP Request** | execute `http` request to access API | 
 | **Script** | write and run `lua` script in real time | 

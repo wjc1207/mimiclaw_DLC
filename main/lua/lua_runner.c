@@ -31,7 +31,7 @@ static const char *TAG = "lua_runner";
 /* ── Capture buffer for print() output ────────────────────── */
 
 #define CAPTURE_BUF_MAX  4096
-#define LUA_TASK_STACK   16384
+#define LUA_TASK_STACK   8192
 
 typedef struct {
     char  buf[CAPTURE_BUF_MAX];
