@@ -3,4 +3,4 @@
 
 ## Feat. 2. social buddy
 
-- Social Buddy is a proximity-based social networking feature for ESP32-S3 wearable devices. Two devices discover each other via ESP-NOW beacon broadcasts, perform a lightweight handshake, exchange AES-128-GCM encrypted profiles, then optionally call a cloud LLM to score the match and generate a personalized icebreaker.
+- Social Buddy is a proximity-based social networking feature for ESP32-S3 wearable devices. Two devices discover each other via BLE beacon broadcasts, perform a lightweight handshake, exchange AES-128-GCM encrypted profiles, then optionally call a cloud LLM to score the match and generate a personalized icebreaker.

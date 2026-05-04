@@ -14,11 +14,12 @@
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/entropy.h"
 #include "cJSON.h"
+#include "esp_heap_caps.h"
 
 static const char *TAG = "buddy_profile";
 
-static buddy_identity_t s_identity = {0};
-static buddy_profile_t   s_profile = {0};
+static buddy_identity_t *s_identity = NULL;
+static buddy_profile_t   *s_profile = NULL;
 static buddy_privacy_mode_t s_privacy = BUDDY_MODE_PUBLIC;
 
 #define BUDDY_NVS_NS      "buddy"
@@ -120,10 +121,10 @@ static esp_err_t identity_load_or_generate(void)
         return err;
     }
 
-    size_t len = sizeof(s_identity);
-    err = nvs_get_blob(nvs, BUDDY_NVS_KEY_ID, &s_identity, &len);
-    if (err == ESP_OK && len == sizeof(s_identity)) {
-        ESP_LOGI(TAG, "Loaded device identity: %s", s_identity.device_id);
+    size_t len = sizeof(*s_identity);
+    err = nvs_get_blob(nvs, BUDDY_NVS_KEY_ID, s_identity, &len);
+    if (err == ESP_OK && len == sizeof(*s_identity)) {
+        ESP_LOGI(TAG, "Loaded device identity: %s", s_identity->device_id);
         nvs_close(nvs);
         return ESP_OK;
     }
@@ -134,23 +135,23 @@ static esp_err_t identity_load_or_generate(void)
     /* Use MAC as device_id */
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
-    snprintf(s_identity.device_id, sizeof(s_identity.device_id),
+    snprintf(s_identity->device_id, sizeof(s_identity->device_id),
              "%02x:%02x:%02x:%02x:%02x:%02x",
              mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-    err = generate_ed25519_keypair(s_identity.ed25519_public, s_identity.ed25519_private);
+    err = generate_ed25519_keypair(s_identity->ed25519_public, s_identity->ed25519_private);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to generate keypair");
         nvs_close(nvs);
         return err;
     }
 
-    err = nvs_set_blob(nvs, BUDDY_NVS_KEY_ID, &s_identity, sizeof(s_identity));
+    err = nvs_set_blob(nvs, BUDDY_NVS_KEY_ID, s_identity, sizeof(*s_identity));
     if (err == ESP_OK) err = nvs_commit(nvs);
     nvs_close(nvs);
 
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "New device identity: %s", s_identity.device_id);
+        ESP_LOGI(TAG, "New device identity: %s", s_identity->device_id);
     }
     return err;
 }
@@ -162,11 +163,11 @@ static esp_err_t profile_load(void)
     esp_err_t err = nvs_open(BUDDY_NVS_NS, NVS_READONLY, &nvs);
     if (err != ESP_OK) return err;
 
-    size_t len = sizeof(s_profile);
-    err = nvs_get_blob(nvs, BUDDY_NVS_KEY_PROF, &s_profile, &len);
+    size_t len = sizeof(*s_profile);
+    err = nvs_get_blob(nvs, BUDDY_NVS_KEY_PROF, s_profile, &len);
     if (err == ESP_OK) {
-        buddy_profile_compute_hash(&s_profile, s_profile.profile_hash);
-        ESP_LOGI(TAG, "Profile loaded: name=%s", s_profile.display_name);
+        buddy_profile_compute_hash(s_profile, s_profile->profile_hash);
+        ESP_LOGI(TAG, "Profile loaded: name=%s", s_profile->display_name);
     }
 
     /* Privacy */
@@ -198,6 +199,13 @@ static void profile_set_default(buddy_profile_t *p)
 
 esp_err_t buddy_profile_init(void)
 {
+    s_identity = heap_caps_calloc(1, sizeof(*s_identity), MALLOC_CAP_SPIRAM);
+    s_profile   = heap_caps_calloc(1, sizeof(*s_profile), MALLOC_CAP_SPIRAM);
+    if (!s_identity || !s_profile) {
+        ESP_LOGE(TAG, "Failed to allocate profile/identity in PSRAM");
+        return ESP_ERR_NO_MEM;
+    }
+
     esp_err_t err = identity_load_or_generate();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Identity init failed");
@@ -207,7 +215,7 @@ esp_err_t buddy_profile_init(void)
     err = profile_load();
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "No profile in NVS, using defaults");
-        profile_set_default(&s_profile);
+        profile_set_default(s_profile);
     }
 
     return ESP_OK;
@@ -216,7 +224,7 @@ esp_err_t buddy_profile_init(void)
 esp_err_t buddy_profile_get(buddy_profile_t *out)
 {
     if (!out) return ESP_ERR_INVALID_ARG;
-    memcpy(out, &s_profile, sizeof(*out));
+    memcpy(out, s_profile, sizeof(*out));
     return ESP_OK;
 }
 
@@ -224,27 +232,27 @@ esp_err_t buddy_profile_set(const buddy_profile_t *profile)
 {
     if (!profile) return ESP_ERR_INVALID_ARG;
 
-    memcpy(&s_profile, profile, sizeof(s_profile));
-    buddy_profile_compute_hash(&s_profile, s_profile.profile_hash);
+    memcpy(s_profile, profile, sizeof(*s_profile));
+    buddy_profile_compute_hash(s_profile, s_profile->profile_hash);
 
     nvs_handle_t nvs;
     esp_err_t err = nvs_open(BUDDY_NVS_NS, NVS_READWRITE, &nvs);
     if (err != ESP_OK) return err;
 
-    err = nvs_set_blob(nvs, BUDDY_NVS_KEY_PROF, &s_profile, sizeof(s_profile));
+    err = nvs_set_blob(nvs, BUDDY_NVS_KEY_PROF, s_profile, sizeof(*s_profile));
     if (err == ESP_OK) err = nvs_commit(nvs);
     nvs_close(nvs);
 
     ESP_LOGI(TAG, "Profile saved: name=%s hash=%02x%02x...%02x",
-             s_profile.display_name,
-             s_profile.profile_hash[0], s_profile.profile_hash[1],
-             s_profile.profile_hash[7]);
+             s_profile->display_name,
+             s_profile->profile_hash[0], s_profile->profile_hash[1],
+             s_profile->profile_hash[7]);
     return err;
 }
 
 const buddy_identity_t *buddy_identity_get(void)
 {
-    return &s_identity;
+    return s_identity;
 }
 
 esp_err_t buddy_privacy_set(buddy_privacy_mode_t mode)

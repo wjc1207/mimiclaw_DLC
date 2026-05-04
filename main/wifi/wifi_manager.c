@@ -79,7 +79,7 @@ static void sntp_time_sync_init(void)
     s_sntp_initialized = true;
     ESP_LOGI(TAG, "SNTP started, waiting for initial sync...");
 
-    if (xTaskCreate(sntp_sync_task, "sntp_sync", 2048, NULL, 3, NULL) != pdPASS) {
+    if (xTaskCreate(sntp_sync_task, "sntp_sync", 4096, NULL, 3, NULL) != pdPASS) {
         ESP_LOGW(TAG, "Failed to create SNTP sync task – sync continues in background");
     }
 }

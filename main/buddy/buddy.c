@@ -1,7 +1,7 @@
 #include "buddy.h"
 #include "buddy_profile.h"
 #include "buddy_contacts.h"
-#include "buddy_espnow.h"
+#include "buddy_ble.h"
 #include "buddy_agent.h"
 
 #include "esp_log.h"
@@ -26,10 +26,10 @@ esp_err_t buddy_init(void)
         return err;
     }
 
-    /* 3. Initialize ESP-NOW */
-    err = buddy_espnow_init();
+    /* 3. Initialize BLE transport */
+    err = buddy_ble_init();
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "ESP-NOW init failed: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "BLE init failed: %s", esp_err_to_name(err));
         return err;
     }
 
@@ -48,10 +48,10 @@ esp_err_t buddy_start(void)
 {
     esp_err_t err;
 
-    /* Start ESP-NOW beacon + receive */
-    err = buddy_espnow_start();
+    /* Start BLE advertising + scanning */
+    err = buddy_ble_start();
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "ESP-NOW start failed: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "BLE start failed: %s", esp_err_to_name(err));
         return err;
     }
 
@@ -59,7 +59,7 @@ esp_err_t buddy_start(void)
     err = buddy_agent_start();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Agent start failed: %s", esp_err_to_name(err));
-        buddy_espnow_stop();
+        buddy_ble_stop();
         return err;
     }
 
@@ -69,7 +69,7 @@ esp_err_t buddy_start(void)
 
 esp_err_t buddy_stop(void)
 {
-    buddy_espnow_stop();
+    buddy_ble_stop();
     buddy_led_set(BUDDY_LED_PATTERN_OFF);
     ESP_LOGI(TAG, "Buddy subsystem stopped");
     return ESP_OK;

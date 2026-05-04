@@ -31,9 +31,8 @@ set(srcs
     "buddy/buddy.c"
     "buddy/buddy_profile.c"
     "buddy/buddy_proximity.c"
-    "buddy/buddy_crypto.c"
     "buddy/buddy_contacts.c"
-    "buddy/buddy_espnow.c"
+    "buddy/buddy_ble.c"
     "buddy/buddy_agent.c"
 )
 

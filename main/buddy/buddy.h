@@ -7,10 +7,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-/* ── ESP-NOW channel ─────────────────────────────────────────── */
-#define BUDDY_ESPNOW_CHANNEL        6
-#define BUDDY_ESPNOW_PMK            "buddy_pmk_16byte"  /* must be exactly 16 bytes */
-#define BUDDY_SESSION_PSK           "buddy_session_v1!"  /* 16 bytes for AES-GCM session key */
+/* ── BLE transport ──────────────────────────────────────────────── */
+#define BUDDY_BLE_ADV_PERIOD_MS    250
+#define BUDDY_BLE_SCAN_INTERVAL_MS  1000
+#define BUDDY_BLE_SCAN_WINDOW_MS    800
 
 /* ── Beacon timing ───────────────────────────────────────────── */
 #define BUDDY_BEACON_PERIOD_MS      250
@@ -23,30 +23,20 @@
 #define BUDDY_PROXIMITY_FAR         (-85)
 #define BUDDY_RSSI_SAMPLES          5
 
-/* ── Handshake limits ────────────────────────────────────────── */
-#define BUDDY_MAX_CONCURRENT_HS     3
-#define BUDDY_HS_RETRY_MAX          3
-#define BUDDY_HS_TIMEOUT_MS         5000
+/* ── Discovery limits ────────────────────────────────────────── */
 #define BUDDY_BEACON_DEDUP_MS       2000
 #define BUDDY_REHANDSHAKE_COOLDOWN_S (30 * 60)
 
-/* ── Profile / payload limits ────────────────────────────────── */
+/* ── Profile limits ──────────────────────────────────────────── */
 #define BUDDY_PROFILE_MAX_BYTES     720
-#define BUDDY_ESPNOW_MAX_PAYLOAD    250
-#define BUDDY_MAX_FRAGMENTS         3
 #define BUDDY_DEVICE_ID_LEN         18
 #define BUDDY_DISPLAY_NAME_LEN      32
 #define BUDDY_BIO_LEN               512
 #define BUDDY_TAGS_LEN              128
 #define BUDDY_CONTACT_PHONE_LEN     20
 #define BUDDY_CONTACT_EMAIL_LEN     64
+#define BUDDY_ICEBREAKER_LEN        512
 #define BUDDY_MAX_CONTACTS          500
-
-/* ── Frame types ─────────────────────────────────────────────── */
-#define BUDDY_FRAME_TYPE_BEACON     0x01
-#define BUDDY_FRAME_TYPE_HS_REQ     0x02
-#define BUDDY_FRAME_TYPE_HS_RESP    0x03
-#define BUDDY_FRAME_TYPE_PROFILE    0x04
 
 /* ── Proximity classes ───────────────────────────────────────── */
 typedef enum {
@@ -101,66 +91,10 @@ typedef struct {
     int64_t  last_met_unix;
     uint16_t meeting_count;
     float    match_score;
-    char     icebreaker[256];
+    char     icebreaker[BUDDY_ICEBREAKER_LEN];
     char     shared_interests[128];
     bool     cloud_synced;
 } buddy_contact_record_t;
-
-/* ── ESP-NOW frame types (wire format) ────────────────────────── */
-
-/* Beacon: 32 bytes broadcast */
-typedef struct __attribute__((packed)) {
-    uint8_t  version;                          /* protocol version */
-    uint8_t  type;                             /* BUDDY_FRAME_TYPE_BEACON */
-    uint8_t  device_id[6];                     /* short MAC */
-    uint8_t  profile_hash[8];                  /* first 8 bytes of SHA-256(profile) */
-    int8_t   rssi_cal;                         /* factory TX power offset */
-    uint8_t  nonce[4];                         /* random, for freshness */
-    uint8_t  flags;                            /* bit0=accepting, bit1=battery_low, bit2=private */
-    uint8_t  reserved[3];
-} buddy_beacon_frame_t;
-
-/* Handshake request: 27 bytes unicast */
-typedef struct __attribute__((packed)) {
-    uint8_t  type;                             /* BUDDY_FRAME_TYPE_HS_REQ */
-    uint8_t  device_id[6];
-    uint32_t timestamp;
-    uint8_t  nonce[16];                        /* session key derivation */
-} buddy_hs_req_frame_t;
-
-/* Handshake response: 23 bytes unicast */
-typedef struct __attribute__((packed)) {
-    uint8_t  type;                             /* BUDDY_FRAME_TYPE_HS_RESP */
-    uint8_t  device_id[6];
-    uint8_t  req_nonce[16];                    /* copied from HS_REQ */
-} buddy_hs_resp_frame_t;
-
-/* Profile payload fragment */
-typedef struct __attribute__((packed)) {
-    uint8_t  type;                             /* BUDDY_FRAME_TYPE_PROFILE */
-    uint8_t  seq;                              /* sequence number */
-    uint8_t  total;                            /* total fragments */
-    uint8_t  encrypted_payload[BUDDY_ESPNOW_MAX_PAYLOAD - 3 - 16];
-    uint8_t  auth_tag[16];                     /* AES-128-GCM tag */
-} buddy_profile_frag_frame_t;
-
-/* ── Rendezvous state (per-peer during handshake) ────────────── */
-typedef struct {
-    uint8_t  peer_mac[6];
-    uint8_t  peer_device_id[BUDDY_DEVICE_ID_LEN];
-    int8_t   rssi;
-    uint8_t  nonce[16];                        /* initiator's nonce (session key material) */
-    uint32_t timestamp_start;
-    uint8_t  aes_key[16];
-    uint8_t  aes_iv[12];
-    uint8_t  reassembly_buf[BUDDY_PROFILE_MAX_BYTES];
-    size_t   reassembly_len;
-    uint8_t  pending_frags;
-    uint8_t  retry_count;
-    bool     active;
-    bool     profile_complete;
-    bool     profile_sent;                     /* avoid double-send in simultaneous handshake */
-} buddy_handshake_t;
 
 /* ── Internal buddy event ────────────────────────────────────── */
 typedef enum {
@@ -179,7 +113,7 @@ typedef struct {
     char     peer_device_id[BUDDY_DEVICE_ID_LEN];
     int8_t   rssi;
     buddy_proximity_t proximity;
-    buddy_profile_t   peer_profile;
+    buddy_profile_t   *peer_profile;   /* allocated from PSRAM, consumer frees */
     bool     peer_profile_valid;
 } buddy_event_t;
 
@@ -201,7 +135,7 @@ typedef enum {
  *   - Load/generate device identity (Ed25519 keypair)
  *   - Load user profile from NVS
  *   - Mount contact store from SPIFFS
- *   - Initialize ESP-NOW
+ *   - Initialize BLE transport
  *   - Start beacon TX and RX tasks
  *   - Start contact processing task
  *   - Init LED
@@ -209,15 +143,19 @@ typedef enum {
 esp_err_t buddy_init(void);
 
 /**
- * Start buddy discovery (beacon broadcast + receive).
- * Call after WiFi is connected (for coexistence setup).
+ * Start buddy discovery (BLE advertising + scanning).
  */
 esp_err_t buddy_start(void);
 
 /**
- * Stop buddy discovery and teardown ESP-NOW.
+ * Stop buddy discovery (BLE advertising + scanning + connections).
  */
 esp_err_t buddy_stop(void);
+
+/**
+ * Get the event queue for contact processing.
+ */
+QueueHandle_t buddy_ble_get_event_queue(void);
 
 /**
  * Get the current user profile. Caller provides buffer.

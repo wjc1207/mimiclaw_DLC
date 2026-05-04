@@ -802,38 +802,44 @@ static int cmd_buddy_status(int argc, char **argv)
     printf("=== Buddy System Status ===\n");
     printf("Device ID:    %s\n", id->device_id);
 
-    buddy_profile_t profile;
-    if (buddy_profile_get(&profile) == ESP_OK) {
-        printf("\n--- Profile ---\n");
-        printf("Name:   %s\n", profile.display_name);
-        printf("Bio:    %s\n", profile.bio);
-        printf("Tags:   %s\n", profile.tags);
-        printf("Vibe:   %s\n", profile.vibe);
-        printf("OpenTo: %s\n", profile.open_to);
-        printf("Phone:  %s\n", profile.contact_phone[0] ? profile.contact_phone : "(not set)");
-        printf("Email:  %s\n", profile.contact_email[0] ? profile.contact_email : "(not set)");
-        printf("Hash:   %02x%02x%02x%02x%02x%02x%02x%02x\n",
-               profile.profile_hash[0], profile.profile_hash[1],
-               profile.profile_hash[2], profile.profile_hash[3],
-               profile.profile_hash[4], profile.profile_hash[5],
-               profile.profile_hash[6], profile.profile_hash[7]);
+    buddy_profile_t *profile = heap_caps_calloc(1, sizeof(*profile), MALLOC_CAP_SPIRAM);
+    if (profile) {
+        if (buddy_profile_get(profile) == ESP_OK) {
+            printf("\n--- Profile ---\n");
+            printf("Name:   %s\n", profile->display_name);
+            printf("Bio:    %s\n", profile->bio);
+            printf("Tags:   %s\n", profile->tags);
+            printf("Vibe:   %s\n", profile->vibe);
+            printf("OpenTo: %s\n", profile->open_to);
+            printf("Phone:  %s\n", profile->contact_phone[0] ? profile->contact_phone : "(not set)");
+            printf("Email:  %s\n", profile->contact_email[0] ? profile->contact_email : "(not set)");
+            printf("Hash:   %02x%02x%02x%02x%02x%02x%02x%02x\n",
+                   profile->profile_hash[0], profile->profile_hash[1],
+                   profile->profile_hash[2], profile->profile_hash[3],
+                   profile->profile_hash[4], profile->profile_hash[5],
+                   profile->profile_hash[6], profile->profile_hash[7]);
+        }
+        heap_caps_free(profile);
     }
 
     printf("Privacy: %s\n",
            buddy_privacy_get() == BUDDY_MODE_PUBLIC ? "PUBLIC" : "PRIVATE");
 
-    buddy_contact_record_t recs[10];
-    size_t count = 0;
-    buddy_contacts_list(recs, 10, &count);
-    printf("\nContacts: %d\n", (int)count);
-    for (size_t i = 0; i < count && i < 5; i++) {
-        printf("  %s - %s (met %lld, score=%.2f, synced=%s)\n",
-               recs[i].peer_id, recs[i].display_name,
-               (long long)recs[i].last_met_unix,
-               recs[i].match_score,
-               recs[i].cloud_synced ? "yes" : "no");
+    buddy_contact_record_t *recs = heap_caps_calloc(10, sizeof(*recs), MALLOC_CAP_SPIRAM);
+    if (recs) {
+        size_t count = 0;
+        buddy_contacts_list(recs, 10, &count);
+        printf("\nContacts: %d\n", (int)count);
+        for (size_t i = 0; i < count && i < 5; i++) {
+            printf("  %s - %s (met %lld, score=%.2f, synced=%s)\n",
+                   recs[i].peer_id, recs[i].display_name,
+                   (long long)recs[i].last_met_unix,
+                   recs[i].match_score,
+                   recs[i].cloud_synced ? "yes" : "no");
+        }
+        if (count > 5) printf("  ...and %d more\n", (int)(count - 5));
+        heap_caps_free(recs);
     }
-    if (count > 5) printf("  ...and %d more\n", (int)(count - 5));
     printf("===========================\n");
     return 0;
 }

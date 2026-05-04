@@ -1,5 +1,5 @@
 #include "buddy_agent.h"
-#include "buddy_espnow.h"
+#include "buddy_ble.h"
 #include "buddy_contacts.h"
 #include "buddy_profile.h"
 #include "buddy_proximity.h"
@@ -106,9 +106,10 @@ static esp_err_t cloud_match_score(const buddy_profile_t *self,
         "只返回合法的JSON，不要前缀说明：\n"
         "{\"match_score\":0.84,\"shared_interests\":[\"标签1\",\"标签2\"],\"icebreaker\":\"...\",\"connection_reason\":\"...\"}";
 
-    /* Build user message with both profiles */
-    char user_msg[2048];
-    snprintf(user_msg, sizeof(user_msg),
+    /* Build user message in PSRAM to keep stack small */
+    char *user_msg = heap_caps_calloc(1, 2048, MALLOC_CAP_SPIRAM);
+    if (!user_msg) return ESP_ERR_NO_MEM;
+    snprintf(user_msg, 2048,
         "自己的档案:\n"
         "名字: %s\n"
         "简介: %s\n"
@@ -136,6 +137,7 @@ static esp_err_t cloud_match_score(const buddy_profile_t *self,
     cJSON_AddItemToArray(messages, um);
     char *msgs_str = cJSON_PrintUnformatted(messages);
     cJSON_Delete(messages);
+    heap_caps_free(user_msg);
     if (!msgs_str) return ESP_ERR_NO_MEM;
 
     /* Call LLM — response buffer on heap to limit stack usage */
@@ -192,7 +194,7 @@ static esp_err_t cloud_match_score(const buddy_profile_t *self,
 /* ── Contact processing task ──────────────────────────────────── */
 static void buddy_contact_task(void *arg)
 {
-    QueueHandle_t evt_queue = buddy_espnow_get_event_queue();
+    QueueHandle_t evt_queue = buddy_ble_get_event_queue();
     if (!evt_queue) {
         ESP_LOGE(TAG, "No event queue, aborting");
         vTaskDelete(NULL);
@@ -206,6 +208,7 @@ static void buddy_contact_task(void *arg)
         if (xQueueReceive(evt_queue, &evt, portMAX_DELAY) != pdTRUE) continue;
 
         if (evt.type != BUDDY_EVT_PROFILE_READY || !evt.peer_profile_valid) {
+            heap_caps_free(evt.peer_profile);
             continue;
         }
 
@@ -231,18 +234,20 @@ static void buddy_contact_task(void *arg)
         }
 
         /* Store contact locally */
-        buddy_contact_record_t rec = {0};
-        snprintf(rec.peer_id, sizeof(rec.peer_id), "%s", peer_id);
-        snprintf(rec.display_name, sizeof(rec.display_name), "%s",
-                 evt.peer_profile.display_name);
-        snprintf(rec.tags, sizeof(rec.tags), "%s", evt.peer_profile.tags);
-        snprintf(rec.bio, sizeof(rec.bio), "%s", evt.peer_profile.bio);
-        snprintf(rec.contact_phone, sizeof(rec.contact_phone), "%s",
-                 evt.peer_profile.contact_phone);
-        snprintf(rec.contact_email, sizeof(rec.contact_email), "%s",
-                 evt.peer_profile.contact_email);
-        rec.cloud_synced = false;
-        buddy_contacts_upsert(&rec);
+        buddy_contact_record_t *rec = heap_caps_calloc(1, sizeof(*rec), MALLOC_CAP_SPIRAM);
+        if (!rec) continue;
+        snprintf(rec->peer_id, sizeof(rec->peer_id), "%s", peer_id);
+        snprintf(rec->display_name, sizeof(rec->display_name), "%s",
+                 evt.peer_profile->display_name);
+        snprintf(rec->tags, sizeof(rec->tags), "%s", evt.peer_profile->tags);
+        snprintf(rec->bio, sizeof(rec->bio), "%s", evt.peer_profile->bio);
+        snprintf(rec->contact_phone, sizeof(rec->contact_phone), "%s",
+                 evt.peer_profile->contact_phone);
+        snprintf(rec->contact_email, sizeof(rec->contact_email), "%s",
+                 evt.peer_profile->contact_email);
+        rec->cloud_synced = false;
+        buddy_contacts_upsert(rec);
+        heap_caps_free(rec);
 
         /* Cloud match scoring (WiFi required) */
         if (!wifi_manager_is_connected()) {
@@ -251,15 +256,16 @@ static void buddy_contact_task(void *arg)
             continue;
         }
 
-        buddy_profile_t self;
-        buddy_profile_get(&self);
+        buddy_profile_t *self = heap_caps_calloc(1, sizeof(*self), MALLOC_CAP_SPIRAM);
+        if (!self) continue;
+        buddy_profile_get(self);
 
         float score = 0.5f;
-        char icebreaker[256] = {0};
+        char icebreaker[BUDDY_ICEBREAKER_LEN] = {0};
         char shared[128] = {0};
 
         esp_err_t match_err = cloud_match_score(
-            &self, &evt.peer_profile, cstat, evt.proximity,
+            self, evt.peer_profile, cstat, evt.proximity,
             icebreaker, sizeof(icebreaker),
             &score, shared, sizeof(shared));
 
@@ -303,21 +309,24 @@ static void buddy_contact_task(void *arg)
             strncpy(sys_msg.chat_id, notify_chat_id, sizeof(sys_msg.chat_id) - 1);
             strncpy(sys_msg.type, "text", sizeof(sys_msg.type) - 1);
 
-            char sys_body[2048];
-            snprintf(sys_body, sizeof(sys_body),
-                "\xF0\x9F\x94\x97 Buddy Match!\n\n"
-                "Peer: %s\n"
-                "Score: %.0f%%\n"
-                "Icebreaker: %s\n"
-                "Phone: %s\n"
-                "Email: %s",
-                evt.peer_profile.display_name,
-                score * 100,
-                icebreaker,
-                evt.peer_profile.contact_phone,
-                evt.peer_profile.contact_email);
+            char *sys_body = heap_caps_calloc(1, 2048, MALLOC_CAP_SPIRAM);
+            if (sys_body) {
+                snprintf(sys_body, 2048,
+                    "\xF0\x9F\x94\x97 Buddy Match!\n\n"
+                    "Peer: %s\n"
+                    "Score: %.0f%%\n"
+                    "Icebreaker: %s\n"
+                    "Phone: %s\n"
+                    "Email: %s",
+                    evt.peer_profile->display_name,
+                    score * 100,
+                    icebreaker,
+                    evt.peer_profile->contact_phone,
+                    evt.peer_profile->contact_email);
 
-            sys_msg.payload.text = strdup(sys_body);
+                sys_msg.payload.text = strdup(sys_body);
+                heap_caps_free(sys_body);
+            }
             if (sys_msg.payload.text) {
                 if (message_bus_push_outbound(&sys_msg) != ESP_OK) {
                     free(sys_msg.payload.text);
@@ -330,7 +339,7 @@ static void buddy_contact_task(void *arg)
             /* Simple retry after delay */
             vTaskDelay(pdMS_TO_TICKS(30000));
             match_err = cloud_match_score(
-                &self, &evt.peer_profile, cstat, evt.proximity,
+                self, evt.peer_profile, cstat, evt.proximity,
                 icebreaker, sizeof(icebreaker),
                 &score, shared, sizeof(shared));
             if (match_err == ESP_OK) {
@@ -340,6 +349,8 @@ static void buddy_contact_task(void *arg)
             }
         }
 
+        heap_caps_free(self);
+        heap_caps_free(evt.peer_profile);
         buddy_led_set(BUDDY_LED_PATTERN_OFF);
         vTaskDelay(pdMS_TO_TICKS(100));  /* brief gap */
     }
@@ -355,7 +366,7 @@ esp_err_t buddy_match_trigger(const buddy_profile_t *self,
     if (!wifi_manager_is_connected()) return ESP_ERR_INVALID_STATE;
 
     float score = 0.5f;
-    char icebreaker[256] = {0};
+    char icebreaker[BUDDY_ICEBREAKER_LEN] = {0};
     char shared[128] = {0};
 
     return cloud_match_score(self, peer, status, proximity,
@@ -378,7 +389,7 @@ esp_err_t buddy_agent_start(void)
 {
     BaseType_t ret = xTaskCreatePinnedToCore(
         buddy_contact_task, "buddy_contact",
-        16384, NULL, 5, NULL, 1);
+        MIMI_BUDDY_CONTACT_STACK, NULL, MIMI_BUDDY_CONTACT_PRIO, NULL, MIMI_BUDDY_CONTACT_CORE);
 
     if (ret != pdPASS) {
         ESP_LOGE(TAG, "Failed to create contact task");
