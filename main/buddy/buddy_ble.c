@@ -171,8 +171,8 @@ static void buddy_ble_start_adv(void)
     struct ble_gap_adv_params adv_params = {
         .conn_mode = BLE_GAP_CONN_MODE_UND,
         .disc_mode = BLE_GAP_DISC_MODE_GEN,
-        .itvl_min = BLE_GAP_ADV_ITVL_MS(200),
-        .itvl_max = BLE_GAP_ADV_ITVL_MS(300),
+        .itvl_min = BLE_GAP_ADV_ITVL_MS(900),
+        .itvl_max = BLE_GAP_ADV_ITVL_MS(1100),
         .channel_map = 0x07,
     };
 
@@ -181,7 +181,7 @@ static void buddy_ble_start_adv(void)
     if (rc != 0) {
         ESP_LOGE(TAG, "ble_gap_adv_start failed: %d", rc);
     } else {
-        ESP_LOGI(TAG, "Advertising started (interval 200-300ms)");
+        ESP_LOGI(TAG, "Advertising started (interval 900-1100ms)");
     }
 }
 

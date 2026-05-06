@@ -114,13 +114,6 @@ static const char ONBOARD_HTML[] =
 "<input id='tavily_key' type='password' placeholder='tvly-...'>"
 "</div></div>"
 
-/* Device capability configuration note */
-"<div class='card collapsed' id='sec-device-capability'>"
-"<div class='card-hdr' onclick='toggle(this)'>Device Capability Configuration</div>"
-"<div class='card-body'>"
-"<div class='hint'>Camera and BLE detailed configuration has moved out of onboarding. Please let the agent configure camera_core and bthome_listener via Lua libraries.</div>"
-"</div></div>"
-
 /* Buddy Profile section */
 "<div class='card collapsed' id='sec-buddy'>"
 "<div class='card-hdr' onclick='toggle(this)'>Buddy Profile</div>"

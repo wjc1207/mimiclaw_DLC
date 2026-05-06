@@ -6,7 +6,7 @@
 #include "freertos/queue.h"
 
 /* ── BLE timing ────────────────────────────────────────────────── */
-#define BUDDY_BLE_ADV_PERIOD_MS      250
+#define BUDDY_BLE_ADV_PERIOD_MS      1000
 #define BUDDY_BLE_ADV_JITTER_MS      50
 #define BUDDY_BLE_SCAN_INTERVAL_MS   1000
 #define BUDDY_BLE_SCAN_WINDOW_MS     800
